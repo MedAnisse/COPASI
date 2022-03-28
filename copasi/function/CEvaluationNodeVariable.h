@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -74,7 +74,7 @@ public:
    * Calculate the numerical result of the node. It is assumed that
    * all child nodes are up to date.
    */
-  virtual void calculate() override;
+  virtual void calculate();
 
   /**
    * Figure out the appropriate CUnit to use, based on the child nodes.
@@ -84,14 +84,14 @@ public:
    * @return CUnit unit
    */
   virtual CValidatedUnit getUnit(const CMathContainer & container,
-                                 const std::vector< CValidatedUnit > & units) const override;
+                                 const std::vector< CValidatedUnit > & units) const;
 
   /**
    * Set the type the result of the node
    * @param const ValueType & valueType
    * @return CIssue issue;
    */
-  virtual CIssue setValueType(const ValueType & valueType) override;
+  virtual CIssue setValueType(const ValueType & valueType);
 
   /**
    * Creates a new CEvaluationNodeCall from an ASTNode and the given children
@@ -105,7 +105,7 @@ public:
    * Converts this node to an AST Node of type AST_NAME
    * @return ASTNode* the resulting ASTNode.
    */
-  virtual ASTNode* toAST(const CDataModel* pDataModel) const override;
+  virtual ASTNode* toAST(const CDataModel* pDataModel) const;
 
   /**
    * Build the MathML string
@@ -116,7 +116,7 @@ public:
    */
   virtual std::string getMMLString(const std::vector< std::string > & children,
                                    bool expand,
-                                   const std::vector< std::vector< std::string > > & variables) const override;
+                                   const std::vector< std::vector< std::string > > & variables) const;
 
   /**
    * return the index of the variable in the function parameter list

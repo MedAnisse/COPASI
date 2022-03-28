@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cmath>
+#include <iostream>
 
 #include "copasi/copasi.h"
 #include "CStochDirectMethod.h"
@@ -51,6 +52,7 @@
 #include "copasi/model/CState.h"
 #include "copasi/model/CCompartment.h"
 #include "copasi/model/CModel.h"
+#include "copasi/core/CRootContainer.h"
 
 CStochDirectMethod::CStochDirectMethod(const CDataContainer * pParent,
                                        const CTaskEnum::Method & methodType,
@@ -171,11 +173,14 @@ CTrajectoryMethod::Status CStochDirectMethod::step(const double & deltaT,
 
   return NORMAL;
 }
-
+void CStochDirectMethod::initializeModel()
+{
+  std::cout<<"new reatinos {{"<<mpContainer->getModel().getReactions()<<"}}"<<std::endl;
+}
 void CStochDirectMethod::start()
 {
   CTrajectoryMethod::start();
-
+  initializeModel();
   /* get configuration data */
   mMaxSteps = getValue< C_INT32 >("Max Internal Steps");
 
@@ -265,6 +270,7 @@ void CStochDirectMethod::start()
   mNextReactionIndex = C_INVALID_INDEX;
 
   stateChange(CMath::eStateChange::State);
+  
 
   return;
 }
@@ -337,12 +343,13 @@ C_FLOAT64 CStochDirectMethod::doSingleStep(C_FLOAT64 startTime, const C_FLOAT64 
       for (size_t i = 0; i != mNumReactions; ++idxProp, ++i)
         {
           sum += mAmu[*idxProp];
-
+         
           if (sum > rand) break;
 
           if (i != 0 && mAmu[*idxProp] > mAmu[*(idxProp - 1)])
             std::swap(*idxProp, *(idxProp - 1));
         }
+        
 
       if (idxProp == mPropensityIdx.end())
         --idxProp;

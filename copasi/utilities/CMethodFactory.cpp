@@ -1,11 +1,10 @@
-// Copyright (C) 2020 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2020 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
 
 #include "copasi/copasi.h"
 
-#include "copasi/utilities/CTaskFactory.h"
 #include "copasi/utilities/CMethodFactory.h"
 
 #include "copasi/crosssection/CCrossSectionMethod.h"
@@ -65,16 +64,6 @@ CCopasiMethod * CMethodFactory::create(const CTaskEnum::Task & taskType,
                                        const CTaskEnum::Method & methodType,
                                        const CDataContainer * pParent)
 {
-  const CCopasiTask * pTask = dynamic_cast< const CCopasiTask * >(pParent);
-
-  if (pTask == NULL ||
-      pTask->getType() != taskType)
-    pTask = CTaskFactory::create(taskType, NULL);
-
-  if (pTask == NULL
-      || !pTask->isValidMethod(methodType, pTask->getValidMethods()))
-    return NULL;
-
   CCopasiMethod * pMethod = NULL;
 
   switch (methodType)
@@ -265,14 +254,14 @@ CCopasiMethod * CMethodFactory::create(const CTaskEnum::Task & taskType,
       case CTaskEnum::Method::timeSensLsoda:
         pMethod = new CTimeSensLsodaMethod(pParent, methodType, taskType);
         break;
+      case CTaskEnum::Method::LMF_test:
+        pMethod = new CTimeSensLsodaMethod(pParent, methodType, taskType);
+        break;
     }
 
   if (pMethod != NULL
       && dynamic_cast< CCopasiTask * >(pMethod->getObjectParent()) != NULL)
     pMethod->setMathContainer(static_cast< CCopasiTask * >(pMethod->getObjectParent())->getMathContainer());
-
-  if (pTask != pParent)
-    delete pTask;
 
   return pMethod;
 }

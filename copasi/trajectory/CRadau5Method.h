@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -112,36 +112,37 @@ protected:
    */
   State mLastRootState;
 
+
   /* step size*/
   double H;
 
   /* scalar tolerances */
-  C_INT ITOL;
+  integer ITOL;
 
   /* Jacobian flags */
-  C_INT IJAC;
-  C_INT MLJAC;
-  C_INT MUJAC;
+  integer IJAC;
+  integer MLJAC;
+  integer MUJAC;
 
   /* differential equation is in explicit form*/
-  C_INT IMAS;
-  C_INT MLMAS;
-  C_INT MUMAS;
+  integer IMAS;
+  integer MLMAS;
+  integer MUMAS;
 
   /* Output flag */
-  C_INT IOUT = 0;
+  integer IOUT = 0;
 
   /* length of work arrays */
-  C_INT LWORK;
-  C_INT LIWORK;
+  integer LWORK;
+  integer LIWORK;
 
   /* optional parameters-- not used yet*/
   double rpar;
-  C_INT idid;
-  C_INT ipar;
+  integer idid;
+  integer ipar;
 
   /* dummy function -- to pass for mass and EvalJ*/
-  static void EvalM(C_INT *, double *, C_INT *, double *, C_INT *);
+  U_fp fcn;
 
 private:
   /**
@@ -153,7 +154,7 @@ private:
    * A pointer to the absolute tolerances excluding fixed event targets.
    */
   C_FLOAT64 * mpAtol;
-
+    
   /**
    * A pointer to the relative tolerances excluding fixed event targets.
    */
@@ -168,6 +169,7 @@ private:
    * The RADAU5 integrator
    */
   CRadau5 mRADAU;
+
 
   /**
    * The task instructions to the integrator
@@ -290,7 +292,7 @@ public:
   /**
    *  This evaluates the derivatives
    */
-  static void EvalF(const C_INT * n, const C_FLOAT64 * t, const C_FLOAT64 * y, C_FLOAT64 * ydot, C_FLOAT64 *, C_INT *);
+  static void EvalF(const C_INT * n, const C_FLOAT64 * t, const C_FLOAT64 * y, C_FLOAT64 * ydot);
 
   virtual void evalF(const C_FLOAT64 * t, const C_FLOAT64 * y, C_FLOAT64 * ydot);
 
@@ -306,16 +308,15 @@ public:
    *  This evaluates the Jacobian
    */
   static void EvalJ(const C_INT * n, const C_FLOAT64 * t, const C_FLOAT64 * y,
-                    double * ml, const C_INT * mu, C_FLOAT64 * pd, const C_INT * nRowPD);
+                    const C_INT * ml, const C_INT * mu, C_FLOAT64 * pd, const C_INT * nRowPD);
 
   virtual void evalJ(const C_FLOAT64 * t, const C_FLOAT64 * y,
-                     double * ml, const C_INT * mu, C_FLOAT64 * pd, const C_INT * nRowPD);
+                     const C_INT * ml, const C_INT * mu, C_FLOAT64 * pd, const C_INT * nRowPD);
 
   /**
    *  This helps to output when automatic step size is selected
    */
-  static void solout(C_INT * nr, double * xold, double * x, double * y, double * cont,
-                     C_INT * lrc, C_INT * n, double * rpar, C_INT * ipar, C_INT * irtrn);
+  static void solout(integer *nr, double *xold, double *x, double *y, double *cont, integer *lrc, integer *n, double *rpar, integer *ipar, integer *irtrn);
 
   virtual void output(const double *t);
 

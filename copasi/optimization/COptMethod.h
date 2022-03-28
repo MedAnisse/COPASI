@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -86,6 +86,9 @@ protected:
    * A thread specific problem
    */
   COptProblemContext mProblemContext;
+
+  /**
+   * A best objective value found
 
   /**
    * Define the current verbosity for the log
@@ -185,6 +188,7 @@ public:
    * @return a the current guess for parameters
    */
   virtual const CVector< C_FLOAT64 > * getCurrentParameters() const;
+
 
 protected:
   /**

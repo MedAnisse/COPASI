@@ -48,7 +48,7 @@
 
 #include <limits.h>
 #include <iterator>
-
+#include <iostream>
 #include "copasi/copasi.h"
 
 #include "CHybridMethod.h"
@@ -604,6 +604,7 @@ void CHybridMethod::setupPartition()
 
   for (i = 0; i < mMetabFlags.size(); i++)
     {
+      std::cout<<"["<<mCurrentState[i]<<"] "<<averageStochLimit<<std::endl; 
       if (mCurrentState[i] < averageStochLimit)
         {
           mMetabFlags[i] = LOW;

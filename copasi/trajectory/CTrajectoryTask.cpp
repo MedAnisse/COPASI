@@ -78,6 +78,7 @@ const CTaskEnum::Method CTrajectoryTask::ValidMethods[] =
   CTaskEnum::Method::hybrid,
   CTaskEnum::Method::hybridLSODA,
   CTaskEnum::Method::hybridODE45,
+  CTaskEnum::Method::LMF_test,
 #ifdef COPASI_DEBUG
   CTaskEnum::Method::DsaLsodar,
 #endif // COPASI_DEBUG
@@ -124,6 +125,7 @@ CTrajectoryTask::CTrajectoryTask(const CTrajectoryTask & src,
   mUpdateMoieties = static_cast< CTrajectoryMethod * >(mpMethod)->integrateReducedModel();
 
   signalMathContainerChanged();
+
 }
 
 CTrajectoryTask::~CTrajectoryTask()

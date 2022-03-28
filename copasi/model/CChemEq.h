@@ -99,7 +99,7 @@ public:
    * @return bool success
    */
   bool addMetabolite(const std::string & key, const C_FLOAT64 multiplicity, const MetaboliteRole & role);
-
+  bool updateMetabolite(const std::string & oldkey,const std::string & newkey, const MetaboliteRole & role);
   /**
    * Retrieves the vector of substrates and their multiplicity
    * in the chemical reaction.

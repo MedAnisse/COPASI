@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2020 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -52,7 +52,6 @@ CSteadyStateMethod::CSteadyStateMethod(const CDataContainer * pParent,
   , mpProblem(NULL)
   , mpParentTask(NULL)
   , mSteadyState()
-  , mStartState()
   , mpJacobian(NULL)
   , mpSSResolution(NULL)
   , mpDerivationFactor(NULL)
@@ -77,7 +76,6 @@ CSteadyStateMethod::CSteadyStateMethod(const CSteadyStateMethod & src,
   , mpProblem(src.mpProblem)
   , mpParentTask(src.mpParentTask)
   , mSteadyState()
-  , mStartState(src.mStartState)
   , mpJacobian(src.mpJacobian)
   , mpSSResolution(NULL)
   , mpDerivationFactor(NULL)
@@ -146,7 +144,6 @@ CSteadyStateMethod::process(CVectorCore< C_FLOAT64 > & State,
   assert(mpParentTask);
 
   mSteadyState.initialize(State);
-  mStartState = mSteadyState;
   mpJacobian = & jacobianX;
   mpCallBack = handler;
 
@@ -166,7 +163,10 @@ CSteadyStateMethod::returnProcess(bool steadyStateFound)
 {
   if (!steadyStateFound)
     {
-      mSteadyState = mStartState;
+      CVectorCore< C_FLOAT64 > InitialState;
+      InitialState.initialize(mpContainer->getInitialState());
+      mSteadyState = CVectorCore< C_FLOAT64 >(mSteadyState.size(), InitialState.array() + (InitialState.size() - mSteadyState.size()));
+
       return CSteadyStateMethod::notFound;
     }
 
@@ -281,9 +281,8 @@ bool CSteadyStateMethod::initialize(const CSteadyStateProblem * pProblem)
   mContainerStateReduced.initialize(mpContainer->getState(true));
   mpContainerStateTime = mContainerState.array() + mpContainer->getCountFixedEventTargets();
 
-  // We only need the tolerances for all ODE or reaction dependent objects
   CVector< C_FLOAT64 > Atol = mpContainer->initializeAtolVector(*mpSSResolution, false);
-  mAtol = CVectorCore< C_FLOAT64 >(Atol.size() - mpContainer->getCountFixedEventTargets() - 1, Atol.begin() + mpContainer->getCountFixedEventTargets() + 1);
+  mAtol = CVectorCore< C_FLOAT64 >(Atol.size() - 1, Atol.begin() + 1);
 
   return true;
 }

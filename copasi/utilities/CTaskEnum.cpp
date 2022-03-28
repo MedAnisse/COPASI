@@ -108,7 +108,8 @@ const CEnumAnnotation< std::string, CTaskEnum::Method > CTaskEnum::MethodName(
   "Cross Section Finder",
   "Linear Noise Approximation",
   "Analytics Finder",
-  "LSODA Sensitivities"
+  "LSODA Sensitivities",
+  "LMF"
 });
 
 const CEnumAnnotation< std::string, CTaskEnum::Method > CTaskEnum::MethodXML(
@@ -164,5 +165,6 @@ const CEnumAnnotation< std::string, CTaskEnum::Method > CTaskEnum::MethodXML(
   "crossSectionMethod",
   "LinearNoiseApproximation",
   "analyticsMethod",
-  "Sensitivities(LSODA)"
+  "Sensitivities(LSODA)",
+  "LMF"
 });

@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -908,9 +908,9 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
   unsigned int counter;
   size_t num;
 
-  CDataVectorN< CFunction > & functions = CRootContainer::getFunctionList()->loadedFunctions();
+  CDataVectorN< CFunction >* functions = &(this->functionDB->loadedFunctions());
 
-  num = functions.size();
+  num = (*functions).size();
 
   if (createProgressStepOrStop(5, num, "Importing function definitions..."))
     return NULL;
@@ -919,7 +919,7 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
 
   for (counter = 0; counter < num; ++counter)
     {
-      CFunction* tree = &functions[counter];
+      CFunction* tree = &functions->operator[](counter);
 
       if (!tree->getSBMLId().empty())
         {
@@ -928,7 +928,9 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
         }
     }
 
-  this->importFunctionDefinitions(sbmlModel, copasi2sbmlmap);
+  CFunctionDB* pTmpFunctionDB = this->importFunctionDefinitions(sbmlModel, copasi2sbmlmap);
+
+
 
   // try to find global parameters that represent Avogadro's number
   this->findAvogadroConstant(sbmlModel, this->mpCopasiModel->getQuantity2NumberFactor());
@@ -1000,12 +1002,14 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
 
   /* Create all species */
   num = sbmlModel->getNumSpecies();
+  std::cout<<"num = {"<<num<<"}";
 
   if (createProgressStepOrStop(7, num, "Importing species..."))
     return NULL;
 
   for (counter = 0; counter < num; ++counter)
     {
+
       Species* sbmlSpecies = sbmlModel->getSpecies(counter);
 
       if (sbmlSpecies == NULL)
@@ -1018,7 +1022,6 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
       if (pCopasiCompartment != NULL)
         {
           CMetab* pCopasiMetabolite = NULL;
-
           try
             {
               pCopasiMetabolite = this->createCMetabFromSpecies(sbmlSpecies, this->mpCopasiModel, pCopasiCompartment, copasi2sbmlmap, sbmlModel);
@@ -1042,6 +1045,7 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
             }
 
           std::string key;
+
 
           if (this->mLevel == 1)
             {
@@ -1229,6 +1233,7 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
 
           if (reaction->getNumReactants() + reaction->getNumProducts() == 0)
             {
+              
               if (reaction->isSetId()
                   &&  reaction->isSetKineticLaw()
                   && reaction->getKineticLaw()->isSetMath())
@@ -1251,8 +1256,9 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
 
               continue;
             }
+            std::cout<<"--------------------------"<<reaction->getNumReactants()<<" ! "<<reaction->getNumProducts() <<""<<std::endl;
+          this->createCReactionFromReaction(reaction, sbmlModel, this->mpCopasiModel, copasi2sbmlmap, pTmpFunctionDB);
 
-          this->createCReactionFromReaction(reaction, sbmlModel, this->mpCopasiModel, copasi2sbmlmap);
         }
       catch (...)
         {
@@ -1512,7 +1518,7 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
                               ))
     return NULL;
 
-  this->removeUnusedFunctions(copasi2sbmlmap);
+  this->removeUnusedFunctions(pTmpFunctionDB, copasi2sbmlmap);
 
   // remove the temporary avogadro parameter if one was created
   if (this->mAvogadroCreated == true)
@@ -1576,6 +1582,8 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
         }
     }
 
+  delete pTmpFunctionDB;
+
   // create a warning if the delay function is used in the model
   if (this->mDelayFound)
     {
@@ -1592,6 +1600,172 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
   // this->mpCopasiModel->forceCompile(this->mpProgressHandler);
   // mpCopasiModel->updateInitialValues(mChangedObjects);
 
+   std::set<const CDataObject*> changedObjects;
+
+  // get number of compartment 
+   size_t numCompartment=this->mpCopasiModel->getCompartments().size();
+   //get the number of reations
+    size_t numReactions=this->mpCopasiModel->getReactions().size();
+   for (size_t i = 0; i < numCompartment; ++i)
+   {
+    const CCompartment* pCompartment = this->mpCopasiModel->getMetabolites()[i].getCompartment();
+    const CDataObject* pObject = pCompartment->getInitialValueReference();
+    assert(pObject != NULL);
+    changedObjects.insert(pObject);
+    assert(pCompartment != NULL);
+    
+    /**
+     * get the number of Metabolites( to make 
+     * 2 copies for each Metabolite 
+     * */
+    size_t mNumMetabolites=this->mpCopasiModel->getMetabolites().size();
+    std::vector<CMetab*> newMetabolites;
+    size_t newMetabIndex=0;
+    for (size_t j = 0; j < mNumMetabolites; ++j)
+    {
+      CMetab* curantMetab =&(this->mpCopasiModel->getMetabolites()[j]);
+      newMetabolites.push_back(this->mpCopasiModel->createMetabolite(curantMetab->getObjectName()+"_1",
+        pCompartment->getObjectName(),
+        curantMetab->getInitialConcentration(),
+        curantMetab->getStatus()));
+      pObject = newMetabolites[newMetabIndex]->getInitialValueReference();
+      ++newMetabIndex;
+      newMetabolites.push_back(this->mpCopasiModel->createMetabolite(curantMetab->getObjectName()+"_2",
+        pCompartment->getObjectName(),
+        curantMetab->getInitialConcentration(),
+        curantMetab->getStatus()));
+      pObject = newMetabolites[newMetabIndex]->getInitialValueReference();
+      ++newMetabIndex;
+
+
+    }
+    /*
+    CMetab* pGlucose = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[0].getObjectName()+"_1",
+     pCompartment->getObjectName(),
+      this->mpCopasiModel->getMetabolites()[0].getInitialConcentration(),
+       this->mpCopasiModel->getMetabolites()[0].getStatus());
+    assert(pObject != NULL);
+    changedObjects.insert(pObject);
+    assert(pCompartment != NULL);
+    assert(pGlucose != NULL);
+    // create a second metabolite called glucose-6-phosphate with an initial
+    // concentration of 0. This metabolite is to be changed by reactions
+    CMetab* pG6P = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[1].getObjectName()+"_1",
+     pCompartment->getObjectName(),
+      this->mpCopasiModel->getMetabolites()[1].getInitialConcentration(),
+       this->mpCopasiModel->getMetabolites()[1].getStatus());
+    pObject = pGlucose->getInitialValueReference();
+    assert(pG6P != NULL);
+    pObject = pG6P->getInitialValueReference();
+    assert(pObject != NULL);
+    changedObjects.insert(pObject);
+    // another metabolite for ATP, also fixed
+    CMetab* pATP = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[2].getObjectName()+"_1",
+     pCompartment->getObjectName(),
+      this->mpCopasiModel->getMetabolites()[2].getInitialConcentration(),
+       this->mpCopasiModel->getMetabolites()[2].getStatus());
+    pObject = pGlucose->getInitialValueReference();
+    assert(pATP != NULL);
+    pObject = pATP->getInitialConcentrationReference();
+    assert(pObject != NULL);
+    changedObjects.insert(pObject);
+    // and one for ADP
+    CMetab* pADP = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[3].getObjectName()+"_1",
+     pCompartment->getObjectName(),
+      this->mpCopasiModel->getMetabolites()[3].getInitialConcentration(),
+       this->mpCopasiModel->getMetabolites()[3].getStatus());
+    pObject = pGlucose->getInitialValueReference();
+    pObject = pADP->getInitialConcentrationReference();
+    changedObjects.insert(pObject);
+    */
+    for (size_t j = 0; j < numReactions; ++j)
+    {
+        // now we create a reaction1 and reaction2 
+        CReaction* pReaction1 = this->mpCopasiModel->createReaction(this->mpCopasiModel->getReactions()[j].getObjectName()+"_1");
+        CReaction* pReaction2 = this->mpCopasiModel->createReaction(this->mpCopasiModel->getReactions()[j].getObjectName()+"_2");
+      
+        //update parameters for the reations 
+        CChemEq* pChemEq = &this->mpCopasiModel->getReactions()[j].getChemEq();
+        CChemEq* pChemEq1 = &pReaction1->getChemEq();
+        CChemEq* pChemEq2 = &pReaction2->getChemEq();
+        // glucose is a substrate with stoichiometry 1
+        newMetabIndex=0;
+        size_t numSubstrates=pChemEq->getSubstrates().size();
+        for (size_t indxSubstrate = 0;  indxSubstrate< numSubstrates; ++indxSubstrate)
+        {
+          const CChemEqElement * currentSubstrate=&(pChemEq->getSubstrates()[indxSubstrate]);
+          const CMetab * curantMetab=currentSubstrate->getMetabolite();
+          for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
+          {
+            if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
+            {
+              pChemEq1->addMetabolite(newMetabolites[indxMetab*2]->getKey(), currentSubstrate->getMultiplicity(), CChemEq::SUBSTRATE);
+              pChemEq2->addMetabolite(newMetabolites[(indxMetab*2)+1]->getKey(), currentSubstrate->getMultiplicity(), CChemEq::SUBSTRATE);
+              break;
+            }
+          }
+        }
+        size_t numProducts=pChemEq->getProducts().size();
+        for (size_t indxProduct = 0;  indxProduct< numProducts; ++indxProduct)
+        {
+          const CChemEqElement * currentProduct=&(pChemEq->getProducts()[indxProduct]);
+          const CMetab * curantMetab=currentProduct->getMetabolite();
+          for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
+          {
+            if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
+            {
+              pChemEq1->addMetabolite(newMetabolites[indxMetab*2]->getKey(), currentProduct->getMultiplicity(), CChemEq::PRODUCT);
+              pChemEq2->addMetabolite(newMetabolites[(indxMetab*2)+1]->getKey(), currentProduct->getMultiplicity(), CChemEq::PRODUCT);
+              break;
+            }
+          }
+        }
+        size_t numModifiers=pChemEq->getModifiers().size();
+        for (size_t indxModifier = 0;  indxModifier< numModifiers; ++indxModifier)
+        {
+          const CChemEqElement * currentindxModifier=&(pChemEq->getModifiers()[indxModifier]);
+          const CMetab * curantMetab=currentindxModifier->getMetabolite();
+          for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
+          {
+            if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
+            {
+              pChemEq1->addMetabolite(newMetabolites[indxMetab*2]->getKey(), currentindxModifier->getMultiplicity(), CChemEq::MODIFIER);
+              pChemEq2->addMetabolite(newMetabolites[(indxMetab*2)+1]->getKey(), currentindxModifier->getMultiplicity(), CChemEq::MODIFIER);
+              break;
+            }
+          }
+        }
+
+        
+        pReaction1->setReversible(false);
+        pReaction2->setReversible(false);
+        
+        CFunctionDB* pFunDB = CRootContainer::getFunctionList();
+        assert(pFunDB != NULL);
+        
+        const std::string suitableFunctions = this->mpCopasiModel->getReactions()[j].getFunction()->getObjectName();
+
+        pReaction1->setFunction(suitableFunctions);
+        pReaction2->setFunction(suitableFunctions);
+        assert(pReaction1->getFunction() != NULL);
+        assert(pReaction2->getFunction() != NULL);
+        
+        size_t numParameterCNs=this->mpCopasiModel->getReactions()[j].getParameterCNs().size();
+        for (int indexParameterCN = 0; indexParameterCN < numParameterCNs; ++indexParameterCN)
+        {
+          std::string arameterCNs= this->mpCopasiModel->getReactions()[j].getParameterCNs(indexParameterCN)[0];
+          std::vector< CRegisteredCommonName > set1;
+          set1.push_back(CRegisteredCommonName(arameterCNs.substr(0,arameterCNs.size()-1)+"_1]"));
+          pReaction1->setParameterCNs(indexParameterCN,set1);
+          std::vector< CRegisteredCommonName > set2;
+          set2.push_back(CRegisteredCommonName(arameterCNs.substr(0,arameterCNs.size()-1)+"_2]"));
+          pReaction2->setParameterCNs(indexParameterCN,set2);
+        }
+        
+        changedObjects.insert(pObject); 
+    }
+    
+   }
   return this->mpCopasiModel;
 }
 
@@ -1762,7 +1936,7 @@ void ensureAllArgsAreBeingUsedInFunctionDefinition(const FunctionDefinition* sbm
   free(formula);
 }
 
-CFunction* SBMLImporter::createCFunctionFromFunctionDefinition(const FunctionDefinition* sbmlFunction, Model* pSBMLModel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap)
+CFunction* SBMLImporter::createCFunctionFromFunctionDefinition(const FunctionDefinition* sbmlFunction, CFunctionDB* pTmpFunctionDB, Model* pSBMLModel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap)
 {
 
   ensureAllArgsAreBeingUsedInFunctionDefinition(sbmlFunction);
@@ -1784,11 +1958,11 @@ CFunction* SBMLImporter::createCFunctionFromFunctionDefinition(const FunctionDef
   // function definition
   // if we don't do this, two functions might have the same SBML id during
   // export which makes the exporter code so much more difficult
-  size_t i, iMax = CRootContainer::getFunctionList()->loadedFunctions().size();
+  size_t i, iMax = this->functionDB->loadedFunctions().size();
 
   for (i = 0; i < iMax; ++i)
     {
-      CFunction* pFun = &CRootContainer::getFunctionList()->loadedFunctions()[i];
+      CFunction* pFun = &this->functionDB->loadedFunctions()[i];
 
       if (pFun->getSBMLId() == sbmlId)
         {
@@ -1808,7 +1982,7 @@ CFunction* SBMLImporter::createCFunctionFromFunctionDefinition(const FunctionDef
   std::string appendix;
   CFunction * pExistingFunction = NULL;
 
-  while ((pExistingFunction = CRootContainer::getFunctionList()->findFunction(functionName + appendix)))
+  while ((pExistingFunction = functionDB->findFunction(functionName + appendix)))
     {
       if (areEqualFunctions(pExistingFunction, pTmpFunction))
         {
@@ -1828,8 +2002,8 @@ CFunction* SBMLImporter::createCFunctionFromFunctionDefinition(const FunctionDef
   if (pTmpFunction != pExistingFunction)
     {
       pTmpFunction->setObjectName(functionName + appendix);
-      CRootContainer::getFunctionList()->add(pTmpFunction, true);
-      mCreatedFunctions.insert(pTmpFunction->getObjectName());
+      functionDB->add(pTmpFunction, true);
+      pTmpFunctionDB->add(pTmpFunction, false);
     }
 
   if (pTmpFunction->getType() == CEvaluationTree::UserDefined)
@@ -2099,6 +2273,7 @@ SBMLImporter::createCMetabFromSpecies(const Species* sbmlSpecies, CModel* copasi
     }
 
   CMetab* copasiMetabolite = copasiModel->createMetabolite(name + appendix, copasiCompartment->getObjectName());
+  
 
   if (copasiMetabolite == NULL)
     {
@@ -2226,7 +2401,7 @@ void renameShadowingFluxReferences(KineticLaw* kLaw,
  * Reaction object.
  */
 CReaction*
-SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLModel, CModel* copasiModel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap)
+SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLModel, CModel* copasiModel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap, CFunctionDB* pTmpFunctionDB,int parameter)
 {
   if (sbmlReaction == NULL)
     {
@@ -2282,7 +2457,8 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
 
   // store if the reaction involves species that need a conversion factor
   bool mConversionFactorNeeded = false;
-
+    
+  
   /* Add all substrates to the reaction */
   unsigned int num = sbmlReaction->getNumReactants();
   bool singleCompartment = true;
@@ -2556,7 +2732,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
           mStoichiometricExpressionMap.insert(std::make_pair(sr->getStoichiometryMath()->getMath(), pChemEqElement));
         }
     }
-
+  
   /* Add all modifiers to the reaction */
   num = sbmlReaction->getNumModifiers();
 
@@ -2807,7 +2983,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
               KineticLawExpression.setRoot(pExpressionTreeRoot);
 
               // check if the expression is constant flux
-              const CDataObject* pParamObject = SBMLImporter::isConstantFlux(pExpressionTreeRoot, copasiModel);
+              const CDataObject* pParamObject = SBMLImporter::isConstantFlux(pExpressionTreeRoot, copasiModel, pTmpFunctionDB);
 
               if (pParamObject != NULL)
                 {
@@ -2827,7 +3003,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
                       functionName = "Constant flux (irreversible)";
                     }
 
-                  CFunction* pCFFun = dynamic_cast< CFunction * >(CRootContainer::getFunctionList()->findFunction(functionName));
+                  CFunction* pCFFun = dynamic_cast<CFunction*>(this->functionDB->findFunction(functionName));
                   assert(pCFFun != NULL);
                   CEvaluationNodeCall* pCallNode = NULL;
 
@@ -2861,7 +3037,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
                     {
                       // if yes, we check if it corresponds to an already existing function
                       std::string functionName = pExpressionTreeRoot->getData();
-                      CFunction* pImportedFunction = dynamic_cast< CFunction * >(CRootContainer::getFunctionList()->findFunction(functionName));
+                      CFunction* pImportedFunction = dynamic_cast<CFunction*>(functionDB->findFunction(functionName));
                       assert(pImportedFunction);
                       std::vector<CEvaluationNodeObject*>* v = NULL;
 
@@ -2883,11 +3059,11 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
 
                           if (copasiReaction->isReversible())
                             {
-                              pFun = static_cast< CFunction * >(CRootContainer::getFunctionList()->findFunction("Mass action (reversible)"));
+                              pFun = static_cast<CFunction*>(this->functionDB->findFunction("Mass action (reversible)"));
                             }
                           else
                             {
-                              pFun = static_cast< CFunction * >(CRootContainer::getFunctionList()->findFunction("Mass action (irreversible)"));
+                              pFun = static_cast<CFunction*>(this->functionDB->findFunction("Mass action (irreversible)"));
                             }
 
                           if (!pFun)
@@ -2951,9 +3127,8 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
                               // next setFunctionFromExpressionTree will take this name if it is not 'Expression'
                               // (the default)
                               TmpTree2.setObjectName(functionName);
-
-                              size_t ExistingFunctions = CRootContainer::getFunctionList()->loadedFunctions().size();
-                              CFunction * pNewFunction = copasiReaction->setFunctionFromExpressionTree(TmpTree2, copasi2sbmlmap);
+                              std::cout<<"2976"<<std::endl;
+                              CFunction * pNewFunction = copasiReaction->setFunctionFromExpressionTree(TmpTree2, copasi2sbmlmap, this->functionDB);
 
                               if (pNewFunction != NULL &&
                                   pNewFunction->getType() == CEvaluationTree::UserDefined)
@@ -2966,8 +3141,8 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
                                       pNewFunction->setReversible(TriUnspecified);
                                     }
 
-                                  if (CRootContainer::getFunctionList()->loadedFunctions().size() < ExistingFunctions)
-                                    mCreatedFunctions.insert(pNewFunction->getObjectName());
+                                  pTmpFunctionDB->add(pNewFunction, false);
+                                  mUsedFunctions.insert(pNewFunction->getObjectName());
                                 }
                             }
                         }
@@ -2996,11 +3171,11 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
 
                           if (copasiReaction->isReversible())
                             {
-                              pFun = static_cast<CFunction*>(CRootContainer::getFunctionList()->findFunction("Mass action (reversible)"));
+                              pFun = static_cast<CFunction*>(this->functionDB->findFunction("Mass action (reversible)"));
                             }
                           else
                             {
-                              pFun = static_cast<CFunction*>(CRootContainer::getFunctionList()->findFunction("Mass action (irreversible)"));
+                              pFun = static_cast<CFunction*>(this->functionDB->findFunction("Mass action (irreversible)"));
                             }
 
                           if (!pFun)
@@ -3025,8 +3200,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
                         }
                       else
                         {
-                          size_t ExistingFunctions = CRootContainer::getFunctionList()->loadedFunctions().size();
-                          CFunction* pNonconstFun = copasiReaction->setFunctionFromExpressionTree(KineticLawExpression, copasi2sbmlmap);
+                          CFunction* pNonconstFun = copasiReaction->setFunctionFromExpressionTree(KineticLawExpression, copasi2sbmlmap, this->functionDB);
 
                           if (pNonconstFun != NULL &&
                               pNonconstFun->getType() == CEvaluationTree::UserDefined)
@@ -3039,8 +3213,8 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
                                   pNonconstFun->setReversible(TriUnspecified);
                                 }
 
-                              if (CRootContainer::getFunctionList()->loadedFunctions().size() > ExistingFunctions)
-                                mCreatedFunctions.insert(pNonconstFun->getObjectName());
+                              pTmpFunctionDB->add(pNonconstFun, false);
+                              mUsedFunctions.insert(pNonconstFun->getObjectName());
                             }
                         }
 
@@ -3064,7 +3238,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
   //DebugFile << "Created reaction: " << copasiReaction->getObjectName() << std::endl;
   SBMLImporter::importMIRIAM(sbmlReaction, copasiReaction);
   SBMLImporter::importNotes(copasiReaction, sbmlReaction);
-
+  std::cout<<"| =====================| "<<std::endl;
   return copasiReaction;
 }
 
@@ -3168,6 +3342,7 @@ SBMLImporter::replaceBvars(const ASTNode* node, std::map<std::string, ASTNode*> 
 SBMLImporter::SBMLImporter():
   mIgnoredSBMLMessages(),
   speciesMap(),
+  functionDB(NULL),
   mIncompleteModel(false),
   mUnsupportedRuleFound(false),
   mUnsupportedRateRuleFound(false),
@@ -3178,7 +3353,7 @@ SBMLImporter::SBMLImporter():
   mOriginalLevel(0),
   mVersion(0),
   sbmlIdMap(),
-  mCreatedFunctions(),
+  mUsedFunctions(),
   mpDataModel(NULL),
   mpCopasiModel(NULL),
   mFunctionNameMapping(),
@@ -3221,6 +3396,7 @@ SBMLImporter::SBMLImporter():
   mpSbmlCallback(NULL)
 {
   this->speciesMap = std::map<std::string, CMetab*>();
+  this->functionDB = NULL;
   this->mIncompleteModel = false;
   this->mUnsupportedRuleFound = false;
   this->mUnsupportedRateRuleFound = false;
@@ -3312,6 +3488,7 @@ void SBMLImporter::replaceSubstanceOnlySpeciesNodes(ConverterASTNode* node, cons
  * Function reads an SBML file with libsbml and converts it to a Copasi CModel
  */
 CModel* SBMLImporter::readSBML(std::string filename,
+                               CFunctionDB* funDB,
                                SBMLDocument*& pSBMLDocument,
                                std::map<const CDataObject*, SBase*>& copasi2sbmlmap,
                                CListOfLayouts *& prLol,
@@ -3345,7 +3522,8 @@ CModel* SBMLImporter::readSBML(std::string filename,
 
   file.clear();
   file.close();
-  return this->parseSBML(stringStream.str(), pSBMLDocument, copasi2sbmlmap, prLol, pDataModel);
+  return this->parseSBML(stringStream.str(), funDB,
+                         pSBMLDocument, copasi2sbmlmap, prLol, pDataModel);
 }
 
 bool SBMLImporter::checkValidityOfSourceDocument(SBMLDocument* sbmlDoc)
@@ -3583,6 +3761,7 @@ bool SBMLImporter::checkValidityOfSourceDocument(SBMLDocument* sbmlDoc)
  */
 CModel*
 SBMLImporter::parseSBML(const std::string& sbmlDocumentText,
+                        CFunctionDB* funDB,
                         SBMLDocument *& pSBMLDocument,
                         std::map<const CDataObject*, SBase*>& copasi2sbmlmap,
                         CListOfLayouts *& prLol,
@@ -3595,6 +3774,13 @@ SBMLImporter::parseSBML(const std::string& sbmlDocumentText,
 
   this->mpCopasiModel = NULL;
 
+  if (funDB == NULL)
+    {
+      finishImport();
+      fatalError();
+    }
+
+  this->functionDB = funDB;
   SBMLReader* reader = new SBMLReader();
 
   mGlobalStepCounter = 0;
@@ -4827,16 +5013,16 @@ void SBMLImporter::restoreFunctionDB()
     }
 
   // remove all the functions that were added during import
-  std::set<std::string>::iterator it2 = this->mCreatedFunctions.begin();
-  std::set<std::string>::iterator endIt2 = this->mCreatedFunctions.end();
+  std::set<std::string>::iterator it2 = this->mUsedFunctions.begin();
+  std::set<std::string>::iterator endIt2 = this->mUsedFunctions.end();
 
   while (it2 != endIt2)
     {
-      CEvaluationTree* pTree = CRootContainer::getFunctionList()->findFunction(*it2);
+      CEvaluationTree* pTree = this->functionDB->findFunction(*it2);
 
       if (pTree != NULL && pTree->getType() == CEvaluationTree::UserDefined)
         {
-          CRootContainer::getFunctionList()->removeFunction(pTree->getKey());
+          this->functionDB->removeFunction(pTree->getKey());
         }
 
       ++it2;
@@ -5202,7 +5388,7 @@ void SBMLImporter::replaceCallNodeNames(ASTNode* pASTNode)
             {
               std::string newName = pos->second;
               itNode->setName(newName.c_str());
-              this->mCreatedFunctions.insert(newName);
+              this->mUsedFunctions.insert(newName);
             }
         }
     }
@@ -5223,7 +5409,7 @@ CFunction* SBMLImporter::findCorrespondingFunction(const CExpression * pExpressi
   CFunction* pCorrespondingFunction = NULL;
 
   std::string Name = pExpression->getRoot()->getData();
-  pCorrespondingFunction = CRootContainer::getFunctionList()->findFunction(Name);
+  pCorrespondingFunction = functionDB->findFunction(Name);
 
   if (pCorrespondingFunction != NULL)
     {
@@ -5299,10 +5485,7 @@ bool SBMLImporter::areEqualFunctions(const CFunction* pFun, const CFunction* pFu
           const CFunctionParameter* pFunParam1 = funParams1[i];
           const CFunctionParameter* pFunParam2 = funParams2[i];
 
-          // Compare paramemeter types if assigned
-          if (pFunParam1->getObjectName() != pFunParam2->getObjectName()
-              || (pFunParam1->getUsage() != CFunctionParameter::Role::VARIABLE
-                  && pFunParam1->getUsage() != pFunParam2->getUsage()))
+          if (pFunParam1->getObjectName() != pFunParam2->getObjectName())
             {
               result = false;
               break;
@@ -6297,8 +6480,11 @@ void SBMLImporter::clearCallBack()
   setImportHandler(NULL);
 }
 
-bool SBMLImporter::removeUnusedFunctions(std::map<const CDataObject*, SBase*>& copasi2sbmlmap)
+bool SBMLImporter::removeUnusedFunctions(CFunctionDB* pTmpFunctionDB, std::map<const CDataObject*, SBase*>& copasi2sbmlmap)
 {
+  if (pTmpFunctionDB == NULL)
+    return true;
+
   size_t i, iMax = this->mpCopasiModel->getReactions().size();
 
   std::set<std::string> functionNameSet;
@@ -6467,10 +6653,10 @@ bool SBMLImporter::removeUnusedFunctions(std::map<const CDataObject*, SBase*>& c
         }
     }
 
-  CRootContainer::getFunctionList();
+  CFunctionDB* pFunctionDB = CRootContainer::getFunctionList();
 
   if (createProgressStepOrStop(15,
-                               (unsigned C_INT32) mCreatedFunctions.size(),
+                               (unsigned C_INT32) pTmpFunctionDB->loadedFunctions().size(),
                                "Removing unused functions..."
                               ))
     return false;
@@ -6478,21 +6664,31 @@ bool SBMLImporter::removeUnusedFunctions(std::map<const CDataObject*, SBase*>& c
   // here we could have a dialog asking the user if unused functions should
   // be removed.
 
-  std::set< std::string >::const_iterator it = mCreatedFunctions.begin();
-  std::set< std::string >::const_iterator end = mCreatedFunctions.end();
+  CDataVectorN < CFunction >::iterator it = pTmpFunctionDB->loadedFunctions().begin();
+  CDataVectorN < CFunction >::iterator end = pTmpFunctionDB->loadedFunctions().end();
 
   for (; it != end; ++it)
     {
-      if (functionNameSet.find(*it) == functionNameSet.end())
+      CEvaluationTree * pTree = it;
+
+      if (functionNameSet.find(pTree->getObjectName()) == functionNameSet.end())
         {
-          CFunction & Function = CRootContainer::getFunctionList()->loadedFunctions()[*it];
+          mUsedFunctions.erase(pTree->getObjectName());
+
+          // We remove pTree from pFunctionDB which deletes pTree if pFunctionDB->loadedFunctions() owns it, thus we
+          // also have to remove it from pTmpFunctionDB->loadedFunctions()
+
+          if (pTree->getObjectParent() == &pFunctionDB->loadedFunctions())
+            {
+              it = NULL;
+            }
+
+          pFunctionDB->loadedFunctions().remove(pTree->getObjectName());
 
           // delete the entry from the copasi2sbmlmap.
-          std::map<const CDataObject*, SBase*>::iterator pos = copasi2sbmlmap.find(&Function);
+          std::map<const CDataObject*, SBase*>::iterator pos = copasi2sbmlmap.find(pTree);
           assert(pos != copasi2sbmlmap.end());
           copasi2sbmlmap.erase(pos);
-
-          CRootContainer::getFunctionList()->loadedFunctions().remove(*it);
         }
 
       ++mCurrentStepCounter;
@@ -9885,7 +10081,7 @@ bool SBMLImporter::importMIRIAM(const SBase* pSBMLObject, CDataObject* pCOPASIOb
   return result;
 }
 
-const CDataObject* SBMLImporter::isConstantFlux(const CEvaluationNode* pRoot, CModel* pModel)
+const CDataObject* SBMLImporter::isConstantFlux(const CEvaluationNode* pRoot, CModel* pModel, CFunctionDB* pFunctionDB)
 {
   const CDataObject* pObject = NULL;
   CRegisteredCommonName name;
@@ -9901,7 +10097,12 @@ const CDataObject* SBMLImporter::isConstantFlux(const CEvaluationNode* pRoot, CM
             pRoot->getChild()->getSibling() == NULL &&
             dynamic_cast<const CEvaluationNode*>(pRoot->getChild())->mainType() == CEvaluationNode::MainType::OBJECT)
           {
-            const CEvaluationTree* pTree = CRootContainer::getFunctionList()->findFunction(pRoot->getData());
+            const CEvaluationTree* pTree = pFunctionDB->findFunction(pRoot->getData());
+
+            // some functions will not be in the local list of function definitions
+            // but rather in the global list due to the way the import works.
+            if (pTree == NULL)
+              pTree = functionDB->findFunction(pRoot->getData());
 
             // the function may only have one node which must be the
             // variable
@@ -10373,7 +10574,7 @@ void SBMLImporter::importEvent(const Event* pEvent, Model* pSBMLModel, CModel* p
  * definition that is defined somewhere further down in the file.
  * So we have to import the function definitions in the correct order.
  */
-void SBMLImporter::importFunctionDefinitions(Model* pSBMLModel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap)
+CFunctionDB* SBMLImporter::importFunctionDefinitions(Model* pSBMLModel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap)
 {
   std::map<const FunctionDefinition*, std::set<std::string> > directFunctionDependencies;
   unsigned int i = 0, iMax = pSBMLModel->getNumFunctionDefinitions();
@@ -10384,6 +10585,7 @@ void SBMLImporter::importFunctionDefinitions(Model* pSBMLModel, std::map<const C
       SBMLImporter::findDirectDependencies(pSBMLModel->getFunctionDefinition(i), directFunctionDependencies);
     }
 
+  CFunctionDB* pTmpFunctionDB = new CFunctionDB("FunctionDB", NULL);
   std::map<const FunctionDefinition*, std::set<std::string> >::iterator it = directFunctionDependencies.begin(), endit = directFunctionDependencies.end();
 
   while (it != endit)
@@ -10392,10 +10594,13 @@ void SBMLImporter::importFunctionDefinitions(Model* pSBMLModel, std::map<const C
       if (it->second.empty())
         {
           CFunction* pFun = NULL;
-
+          CFunction* pFun1 = NULL;
+          CFunction* pFun2 = NULL;
           try
             {
-              pFun = this->createCFunctionFromFunctionDefinition(it->first, pSBMLModel, copasi2sbmlmap);
+              pFun = this->createCFunctionFromFunctionDefinition(it->first, pTmpFunctionDB, pSBMLModel, copasi2sbmlmap);
+              pFun1 = this->createCFunctionFromFunctionDefinition(it->first, pTmpFunctionDB, pSBMLModel, copasi2sbmlmap);
+              pFun2 = this->createCFunctionFromFunctionDefinition(it->first, pTmpFunctionDB, pSBMLModel, copasi2sbmlmap);
             }
           catch (...)
             {
@@ -10416,7 +10621,8 @@ void SBMLImporter::importFunctionDefinitions(Model* pSBMLModel, std::map<const C
             }
 
           assert(pFun != NULL);
-
+          assert(pFun1 != NULL);
+          assert(pFun2 != NULL);
           std::map<std::string, std::string>::const_iterator pos = mKnownCustomUserDefinedFunctions.find(it->first->getId());
 
           if (pos != mKnownCustomUserDefinedFunctions.end())
@@ -10426,28 +10632,46 @@ void SBMLImporter::importFunctionDefinitions(Model* pSBMLModel, std::map<const C
                   // replace call to function with call to uniform
                   pFun->setInfix("UNIFORM(a, b)");
                   pFun->compile();
+                  pFun1->setInfix("UNIFORM(a, b)");
+                  pFun1->compile();
+                  pFun2->setInfix("UNIFORM(a, b)");
+                  pFun2->compile();
                 }
               else if (pos->second == "RNORMAL")
                 {
                   // replace call to function with call to normal
                   pFun->setInfix("NORMAL(a, b)");
                   pFun->compile();
+                  pFun1->setInfix("NORMAL(a, b)");
+                  pFun1->compile();
+                  pFun2->setInfix("NORMAL(a, b)");
+                  pFun2->compile();
                 }
               else if (pos->second == "RPOISSON")
                 {
                   // replace call to function with call to normal
                   pFun->setInfix("POISSON(a)");
                   pFun->compile();
+                  pFun1->setInfix("POISSON(a)");
+                  pFun1->compile();
+                  pFun2->setInfix("POISSON(a)");
+                  pFun2->compile();
                 }
               else if (pos->second == "RGAMMA")
                 {
                   // replace call to function with call to normal
                   pFun->setInfix("GAMMA(a, b)");
                   pFun->compile();
+                  pFun1->setInfix("GAMMA(a, b)");
+                  pFun1->compile();
+                  pFun2->setInfix("GAMMA(a, b)");
+                  pFun2->compile();
                 }
             }
 
           copasi2sbmlmap[pFun] = const_cast<FunctionDefinition*>(it->first);
+          copasi2sbmlmap[pFun1] = const_cast<FunctionDefinition*>(it->first);
+          copasi2sbmlmap[pFun2] = const_cast<FunctionDefinition*>(it->first);
           this->mFunctionNameMapping[it->first->getId()] = pFun->getObjectName();
           // next we delete the imported function definitions from the dependencies of
           // the other function definitions
@@ -10484,10 +10708,10 @@ void SBMLImporter::importFunctionDefinitions(Model* pSBMLModel, std::map<const C
 
       nameList = nameList.substr(0, nameList.size() - 2);
       // clean up the temporary function database
+      delete pTmpFunctionDB;
       CCopasiMessage(CCopasiMessage::EXCEPTION, MCSBML + 76, nameList.c_str());
     }
-
-  return;
+  return pTmpFunctionDB;
 }
 
 /**

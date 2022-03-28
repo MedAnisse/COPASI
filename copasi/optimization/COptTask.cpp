@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -93,8 +93,7 @@ bool COptTask::setCallBack(CProcessReport * pCallBack)
 {
   bool success = CCopasiTask::setCallBack(pCallBack);
 
-  if (success &&
-      mpProblem != NULL)
+  if (mpProblem != NULL)
     {
       success &=  mpProblem->setCallBack(pCallBack);
     }
@@ -106,9 +105,6 @@ bool COptTask::initialize(const OutputFlag & of,
                           COutputHandler * pOutputHandler,
                           std::ostream * pOstream)
 {
-  if (!isTaskValid())
-    return false;
-
   COptProblem * pProblem = dynamic_cast<COptProblem *>(mpProblem);
   COptMethod * pMethod = dynamic_cast<COptMethod *>(mpMethod);
 

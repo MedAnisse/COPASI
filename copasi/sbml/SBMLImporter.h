@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -68,6 +68,7 @@ protected:
 protected:
   std::set<unsigned int> mIgnoredSBMLMessages;
   std::map<std::string, CMetab*> speciesMap;
+  CFunctionDB* functionDB;
   bool mIncompleteModel;
   bool mUnsupportedRuleFound;
   bool mUnsupportedRateRuleFound;
@@ -78,7 +79,7 @@ protected:
   unsigned int mOriginalLevel;
   unsigned int mVersion;
   std::map<CFunction*, std::string> sbmlIdMap;
-  std::set<std::string> mCreatedFunctions;
+  std::set<std::string> mUsedFunctions;
   CDataModel * mpDataModel;
   CModel* mpCopasiModel;
   std::map<std::string, std::string> mFunctionNameMapping;
@@ -214,6 +215,7 @@ protected:
    * given as argument.
    */
   CFunction* createCFunctionFromFunctionDefinition(const FunctionDefinition* sbmlFunction,
+      CFunctionDB* pTmpFunctionDB,
       Model* pSBMLModel,
       std::map<const CDataObject*, SBase*>& copasi2sbmlmap);
 
@@ -312,7 +314,9 @@ protected:
    */
   CReaction* createCReactionFromReaction(Reaction* sbmlReaction,
                                          Model* sbmlModel,
-                                         CModel* cmodel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap);
+                                         CModel* cmodel, std::map<const CDataObject*, SBase*>& copasi2sbmlmap,
+                                         CFunctionDB* pTmpFunctionDB,
+                                         int parameter=0);
 
   /**
    * Creates a map of each parameter of the function definition and its
@@ -507,7 +511,8 @@ protected:
    * or a model value or a function which has a single parameter and a single node which also represents a parameter.
    */
   const CDataObject* isConstantFlux(const CEvaluationNode* pRoot,
-                                    CModel* pModel);
+                                    CModel* pModel,
+                                    CFunctionDB* pFunctionDB);
 
   std::vector<CEvaluationNodeObject*>* isMassActionExpression(const CEvaluationNode* pRootNode,
       const CChemEq& chemicalEquation);
@@ -553,7 +558,8 @@ protected:
   /**
    * Finds all functions that are used and removes those that are not.
    */
-  bool removeUnusedFunctions(std::map<const CDataObject*, SBase*>& copasi2sbmlmap);
+  bool removeUnusedFunctions(CFunctionDB* pTmpFunctionDB,
+                             std::map<const CDataObject*, SBase*>& copasi2sbmlmap);
 
   /**
    * Finds all functions calls directly or indirectly used in a function
@@ -696,8 +702,8 @@ protected:
    * definition that is defined somewhere further down in the file.
    * So we have to import the function definitions in the correct order.
    */
-  void importFunctionDefinitions(Model * pSBMLModel,
-                                 std::map< const CDataObject *, SBase * > & copasi2sbmlmap);
+  CFunctionDB* importFunctionDefinitions(Model* pSBMLModel,
+                                         std::map<const CDataObject*, SBase*>& copasi2sbmlmap);
 
   /**
    * static method that finds all direct function dependencies of a given
@@ -718,6 +724,7 @@ public:
   ~SBMLImporter();
 
   CModel* readSBML(std::string filename,
+                   CFunctionDB* funDB,
                    SBMLDocument*& pSBMLDocument,
                    std::map<const CDataObject*, SBase*>& copasi2sbmlmap,
                    CListOfLayouts *& prLol,
@@ -726,6 +733,7 @@ public:
   //CModel* readSBML(std::string filename, CFunctionDB* funDB, SBMLDocument *& pSBMLDocument, std::map<CDataObject*, SBase*>& copasi2sbmlmap);
 
   CModel* parseSBML(const std::string& sbmlDocumentText,
+                    CFunctionDB* funDB,
                     SBMLDocument *& pSBMLDocument,
                     std::map<const CDataObject*, SBase*>& copasi2sbmlmap,
                     CListOfLayouts *& prLol,

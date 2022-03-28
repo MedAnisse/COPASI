@@ -1,8 +1,3 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
-// University of Virginia, University of Heidelberg, and University
-// of Connecticut School of Medicine.
-// All rights reserved.
-
 // Copyright (C) 2017 - 2018 by Pedro Mendes, Virginia Tech Intellectual
 // Properties, Inc., University of Heidelberg, and University of
 // of Connecticut School of Medicine.
@@ -204,13 +199,13 @@ private:
   //std::vector<C_FLOAT64> mvTimesRing;
 
   //the number of states already pushed to the ring buffer
-  C_INT32 mStatesRingCounter;
+  int mStatesRingCounter;
 
   C_FLOAT64 mPreviousCrossingTime;
   C_FLOAT64 mPeriod;
   C_FLOAT64 mAveragePeriod;
   C_FLOAT64 mLastPeriod;
-  C_INT32 mPeriodicity;
+  C_INT mPeriodicity;
   C_FLOAT64 mLastFreq;
   C_FLOAT64 mFreq;
   C_FLOAT64 mAverageFreq;

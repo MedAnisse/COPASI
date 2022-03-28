@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -390,6 +390,13 @@ void ReactionsWidget1::FillWidgetFromRI()
   mpChkReversible->setChecked(mpRi->isReversible());
   mpMultiCompartment->setChecked(mpRi->isMulticompartment());
 
+  // the function combobox
+  QStringList comboEntries;
+  vectorOfStrings2QStringList(mpRi->getListOfPossibleFunctions(), comboEntries);
+
+  mpCmbRateLaw->clear();
+  mpCmbRateLaw->insertItems(0, comboEntries);
+
   // Initialize scaling compartment combobox
   QMultiMap<QString, QString> Compartments;
 
@@ -422,21 +429,13 @@ void ReactionsWidget1::FillWidgetFromRI()
         }
     }
 
-  bool SignalsBlocked = mpComboBoxCompartment->blockSignals(true);
+  mpComboBoxCompartment->blockSignals(true);
   mpComboBoxCompartment->clear();
   mpComboBoxCompartment->addItems(Compartments.values());
   mpComboBoxCompartment->setCurrentIndex(mpComboBoxCompartment->findText(FROM_UTF8(mpRi->getDefaultScalingCompartment())));
-  mpComboBoxCompartment->blockSignals(SignalsBlocked);
+  mpComboBoxCompartment->blockSignals(false);
 
   // if there is a current function the parameter table is initialized
-  // the function combobox
-  QStringList comboEntries;
-  vectorOfStrings2QStringList(mpRi->getListOfPossibleFunctions(), comboEntries);
-
-  SignalsBlocked = mpCmbRateLaw->blockSignals(true);
-  mpCmbRateLaw->clear();
-  mpCmbRateLaw->insertItems(0, comboEntries);
-
   if (mpRi->getFunctionName() != "")
     {
       if (comboEntries.filter(FROM_UTF8(mpRi->getFunctionName())).size() == 0)
@@ -454,8 +453,6 @@ void ReactionsWidget1::FillWidgetFromRI()
       mpCmbRateLaw->setCurrentIndex(0);
       mpParameterMapping->initTable();
     }
-
-  mpCmbRateLaw->blockSignals(SignalsBlocked);
 
   // Noise Expression
   mpNoiseExpressionWidget->mpExpressionWidget->setExpression(mpRi->getNoiseExpression());

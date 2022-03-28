@@ -110,6 +110,7 @@ public:
     linearNoiseApproximation,
     analyticsMethod,
     timeSensLsoda,
+    LMF_test,
     __SIZE
   };
 

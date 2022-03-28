@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2020 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -144,11 +144,16 @@ public:
   virtual bool setModel(CModel* model);
 
   /**
-   * Retrieve the optional sub task
-   *
-   * @return CCopasiTask* * pSubTask
+   * calculate function for optimization
+   * @result bool fulfilled
    */
-  virtual CCopasiTask * getSubTask() const;
+  // virtual bool checkParametricConstraints();
+
+  /**
+   * calculate function for optimization
+   * @result bool fulfilled
+   */
+  // virtual bool checkFunctionalConstraints();
 
   /**
    * This is the output method for any object. The default implementation

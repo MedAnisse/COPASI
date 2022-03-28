@@ -30,6 +30,7 @@
 
 #include "copasi/trajectory/CTrajectoryMethod.h"
 #include "copasi/utilities/CBrent.h"
+#include "copasi/model/CModel.h"
 
 class CModel;
 class CMetab;
@@ -255,6 +256,10 @@ protected:
    * The last time dependent root time
    */
   C_FLOAT64 mLastRootTime;
+  /**
+   * modify model to get 3 times number of reactions and species
+   * */
+  void initializeModel();
 };
 
 #endif // COPASI_CStochDirectMethod

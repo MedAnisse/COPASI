@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -123,13 +123,10 @@ bool CCrossSectionTask::initialize(const OutputFlag & of,
                                    COutputHandler * pOutputHandler,
                                    std::ostream * pOstream)
 {
-  if (!mpProblem || !mpMethod)
-    return false;
+  assert(mpProblem && mpMethod);
 
   mpCrossSectionProblem = dynamic_cast<CCrossSectionProblem *>(mpProblem);
-
-  if (!mpCrossSectionProblem)
-    return false;
+  assert(mpCrossSectionProblem);
 
   //init the ring buffer for the states
   mStatesRing.resize(RING_SIZE);
@@ -181,11 +178,6 @@ void CCrossSectionTask::removeEvent()
 
 bool CCrossSectionTask::process(const bool & useInitialValues)
 {
-  mpCrossSectionProblem = dynamic_cast< CCrossSectionProblem * >(mpProblem);
-
-  if (!mpCrossSectionProblem)
-    return false;
-
   processStart(useInitialValues);
 
   mPreviousCrossingTime = std::numeric_limits< C_FLOAT64 >::quiet_NaN();

@@ -1,0 +1,2 @@
+/home/roo/Documents/ter_project/COPASI/copasi/trajectory/CMakeFiles/rebuild_cache.dir
+/home/roo/Documents/ter_project/COPASI/copasi/trajectory/CMakeFiles/edit_cache.dir

@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -93,46 +93,46 @@ public:
    * Retrieve the value of the node.
    * @return const Data & value
    */
-  virtual const Data & getData() const override;
+  virtual const Data & getData() const;
 
   /**
    * Set the data of the Node.
    * @param const Data & data
    * @return bool success
    */
-  virtual bool setData(const Data & data) override;
+  virtual bool setData(const Data & data);
 
   /**
    * Retrieve the infix value of the node and its eventual child nodes.
    * @return const Data & value
    */
-  virtual std::string getInfix(const std::vector< std::string > & children) const override;
+  virtual std::string getInfix(const std::vector< std::string > & children) const;
 
   /**
    * Retrieve the display string of the node and its eventual child nodes.
    * @return const Data & value
    */
-  virtual std::string getDisplayString(const std::vector< std::string > & children) const override;
+  virtual std::string getDisplayString(const std::vector< std::string > & children) const;
 
   /**
    * Retrieve the display string of the node and its eventual child nodes in C.
    * @return const Data & value
    */
-  virtual std::string getCCodeString(const std::vector< std::string > & children) const override;
+  virtual std::string getCCodeString(const std::vector< std::string > & children) const;
 
   /**
    * Retrieve the display string of the node and its eventual child nodes in
    * Berkeley Madonna format.
    * @return const Data & value
    */
-  virtual std::string getBerkeleyMadonnaString(const std::vector< std::string > & children) const override;
+  virtual std::string getBerkeleyMadonnaString(const std::vector< std::string > & children) const;
 
   /**
    * Retrieve the display string of the node and its eventual child nodes in
    * XPPAUT format.
    * @return const Data & value
    */
-  virtual std::string getXPPString(const std::vector< std::string > & children) const override;
+  virtual std::string getXPPString(const std::vector< std::string > & children) const;
 
   /**
    * Figure out the appropriate CUnit to use, based on the child nodes.
@@ -142,7 +142,7 @@ public:
    * @return CUnit unit
    */
   virtual CValidatedUnit getUnit(const CMathContainer & container,
-                                 const std::vector< CValidatedUnit > & units) const override;
+                                 const std::vector< CValidatedUnit > & units) const;
 
   /**
    * Creates a new CEvaluationNodeCall from an ASTNode and the given children
@@ -156,7 +156,7 @@ public:
    * Converts this node to an ASTNode.
    * @return ASTNode the resulting ASTNode.
    */
-  virtual ASTNode* toAST(const CDataModel* pDataModel) const override;
+  virtual ASTNode* toAST(const CDataModel* pDataModel) const;
 
   /**
    * Retrieve the CN of the referred object.
@@ -191,7 +191,7 @@ public:
    */
   virtual std::string getMMLString(const std::vector< std::string > & children,
                                    bool expand,
-                                   const std::vector< std::vector< std::string > > & variables) const override;
+                                   const std::vector< std::vector< std::string > > & variables) const;
 
   //Attributes
 private:

@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2020 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -39,10 +39,6 @@ Curve2DWidget::Curve2DWidget(QWidget* parent, const char* /* name */, Qt::Window
   mpObjectX(NULL)
 {
   setupUi(this);
-
-  fillCombobox(mpBoxType, CPlotItem::LineTypeNames);
-  fillCombobox(mpBoxLineSubType, CPlotItem::LineStyleNames);
-  fillCombobox(mpBoxSymbolSubType, CPlotItem::SymbolNames);
 
   mpBtnX->setIcon(CQIconResource::icon(CQIconResource::copasi));
   mpBtnY->setIcon(CQIconResource::icon(CQIconResource::copasi));
@@ -113,11 +109,8 @@ bool Curve2DWidget::LoadFromCurveSpec(const CPlotItem * curve)
 
   typeChanged(linetype);
 
-  CPlotItem::LineType lineType = (CPlotItem::LineType) linetype;
-
   //line subtype & width
-  if (lineType == CPlotItem::LineType::Lines ||
-      lineType == CPlotItem::LineType::LinesAndSymbols)
+  if (linetype == 0 || linetype == 3)
     {
       mpBoxLineSubType->setCurrentIndex(curve->getValue< unsigned C_INT32 >("Line subtype"));
 
@@ -126,14 +119,13 @@ bool Curve2DWidget::LoadFromCurveSpec(const CPlotItem * curve)
     }
 
   // points
-  if (lineType == CPlotItem::LineType::Points)
+  if (linetype == 1)
     {
       mpSpinBoxWidth->setValue(curve->getValue< C_FLOAT64 >("Line width"));
     }
 
   //symbol type
-  if (lineType == CPlotItem::LineType::Symbols ||
-      lineType == CPlotItem::LineType::LinesAndSymbols)
+  if (linetype == 2 || linetype == 3)
     {
       mpBoxSymbolSubType->setCurrentIndex(curve->getValue< unsigned C_INT32 >("Symbol subtype"));
     }
@@ -339,25 +331,21 @@ void Curve2DWidget::buttonPressedY()
     mpEditY->setText("");
 }
 
-void Curve2DWidget::typeChanged(int type)
+void Curve2DWidget::typeChanged(int linetype)
 {
-  CPlotItem::LineType linetype = (CPlotItem::LineType) type;
-
-  if (linetype == CPlotItem::LineType::Lines ||
-      linetype == CPlotItem::LineType::LinesAndSymbols ||
-      linetype == CPlotItem::LineType::Points)
+  if (linetype == 0 || linetype == 3 || linetype == 1)
     {
-      mpBoxLineSubType->setEnabled(linetype != CPlotItem::LineType::Points);
+      mpBoxLineSubType->setEnabled(linetype != 1);
       mpSpinBoxWidth->setEnabled(true);
     }
   else
     {
-      mpBoxLineSubType->setEnabled(linetype == CPlotItem::LineType::Points);
+      mpBoxLineSubType->setEnabled(linetype == 1);
       mpSpinBoxWidth->setEnabled(false);
     }
 
   //symbol type
-  if (linetype == CPlotItem::LineType::Symbols || linetype == CPlotItem::LineType::LinesAndSymbols)
+  if (linetype == 2 || linetype == 3)
     {
       mpBoxSymbolSubType->setEnabled(true);
     }

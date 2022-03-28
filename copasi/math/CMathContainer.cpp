@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 - 2021 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -13,16 +13,13 @@
 // of Manchester.
 // All rights reserved.
 
-#define JIT_IMPLEMENTATION
-
 #include "copasi/copasi.h"
 
-#include "copasi/math/CMathContainer.h"
-#include "copasi/math/CMathExpression.h"
-#include "copasi/math/CMathEventQueue.h"
-#include "copasi/math/CMathUpdateSequence.h"
-#include "copasi/math/CJitCompiler.h"
-
+#include "CMathContainer.h"
+#include "CMathExpression.h"
+#include "CMathEventQueue.h"
+#include "CMathUpdateSequence.h"
+#include <iostream>
 #include "copasi/model/CModel.h"
 #include "copasi/model/CCompartment.h"
 #include "copasi/model/CMetab.h"
@@ -30,7 +27,6 @@
 #include "copasi/model/CObjectLists.h"
 #include "copasi/CopasiDataModel/CDataModel.h"
 #include "copasi/utilities/CNodeIterator.h"
-#include "copasi/utilities/dgemm.h"
 #include "copasi/randomGenerator/CRandom.h"
 #include "copasi/lapack/blaswrap.h"
 
@@ -308,7 +304,7 @@ CMathContainer::CMathContainer()
   , mNumTotalRootsIgnored(0)
   , mValueChangeProhibited()
 #ifdef USE_JIT
-  , mpJITCompiler(CJitCompiler::create())
+  , mJITCompiler()
 #endif
   , mCompileTime()
 {
@@ -410,7 +406,7 @@ CMathContainer::CMathContainer(CModel & model)
   , mNumTotalRootsIgnored(0)
   , mValueChangeProhibited()
 #ifdef USE_JIT
-  , mpJITCompiler(CJitCompiler::create())
+  , mJITCompiler()
 #endif
   , mCompileTime()
 {
@@ -521,7 +517,7 @@ CMathContainer::CMathContainer(const CMathContainer & src)
   , mNumTotalRootsIgnored(src.mNumTotalRootsIgnored)
   , mValueChangeProhibited(src.mValueChangeProhibited)
 #ifdef USE_JIT
-  , mpJITCompiler(src.mpJITCompiler->copy())
+  , mJITCompiler(src.mJITCompiler)
 #endif
   , mCompileTime(src.mCompileTime)
 {
@@ -576,12 +572,12 @@ CMathContainer::CMathContainer(const CMathContainer & src)
 
   for (; pObject != pObjectEnd; ++pObject)
     {
-      pObject->setJITCompiler(*mpJITCompiler);
+      pObject->setJITCompiler(mJITCompiler);
     }
 
   try
     {
-      mpJITCompiler->compile();
+      mJITCompiler.compile();
     }
   catch (...)
     {}
@@ -606,10 +602,6 @@ CMathContainer::~CMathContainer()
     {
       deregisterUpdateSequence(*mUpdateSequences.begin());
     }
-
-#ifdef USE_JIT
-  pdelete(mpJITCompiler);
-#endif
 
   setObjectParent(NULL);
 }
@@ -1566,7 +1558,7 @@ void CMathContainer::compile()
 
   try
     {
-      mpJITCompiler->compile();
+      mJITCompiler.compile();
     }
   catch (...)
     {}
@@ -2317,7 +2309,7 @@ bool CMathContainer::compileObjects()
     {
 #ifdef USE_JIT
       success &=
-        pObject->compile(*this, *mpJITCompiler);
+        pObject->compile(*this, mJITCompiler);
 #else
       success &= pObject->compile(*this);
 #endif
@@ -2743,7 +2735,6 @@ void CMathContainer::createApplyInitialValuesSequence()
                   break;
 
                 case CMath::SimulationType::Assignment:
-                  Changed.insert(pObject);
                   Requested.insert(pObject);
                   break;
 
@@ -2751,6 +2742,10 @@ void CMathContainer::createApplyInitialValuesSequence()
                   break;
               }
 
+            break;
+
+          // Delay values are always calculate in a separate step
+          case CMath::ValueType::DelayValue:
             break;
 
           // Everything else must be calculated.
@@ -2839,6 +2834,16 @@ void CMathContainer::createUpdateSimulationValuesSequence()
               }
 
             ReducedSimulationRequiredValues.insert(pObject);
+            break;
+
+          case CMath::SimulationType::Undefined:
+
+            if (pObject->getValueType() == CMath::ValueType::DelayValue)
+              {
+                mStateValues.insert(pObject);
+                mReducedStateValues.insert(pObject);
+              }
+
             break;
 
           default:
@@ -3023,8 +3028,22 @@ void CMathContainer::calculateRootDerivatives(CVector< C_FLOAT64 > & rootDerivat
   CMatrix< C_FLOAT64 > Jacobian;
   calculateRootJacobian(Jacobian);
 
-  CVectorCore< C_FLOAT64 > Rates(Jacobian.numCols(), mRate.array() + mSize.nFixedEventTargets);
-  dgemm::eval(1.0, Jacobian, Rates, 0.0, rootDerivatives);
+  rootDerivatives.resize(Jacobian.numRows());
+  C_FLOAT64 * pDerivative = rootDerivatives.array();
+
+  //We only consider the continuous state variables
+  C_FLOAT64 * pRate = mRate.array() + mSize.nFixedEventTargets;
+
+  // Now multiply the the Jacobian with the rates
+  char T = 'N';
+  C_INT M = 1;
+  C_INT N = (C_INT) Jacobian.numRows();
+  C_INT K = (C_INT) Jacobian.numCols();
+  C_FLOAT64 Alpha = 1.0;
+  C_FLOAT64 Beta = 0.0;
+
+  dgemm_(&T, &T, &M, &N, &K, &Alpha, pRate, &M,
+         Jacobian.array(), &K, &Beta, pDerivative, &M);
 }
 
 void CMathContainer::calculateRootJacobian(CMatrix< C_FLOAT64 > & jacobian)
@@ -3114,17 +3133,15 @@ void CMathContainer::calculateRootJacobian(CMatrix< C_FLOAT64 > & jacobian)
 
 void CMathContainer::calculateJacobian(CMatrix< C_FLOAT64 > & jacobian,
                                        const C_FLOAT64 & derivationFactor,
-                                       const bool & reduced,
-                                       const bool & includeTime)
+                                       const bool & reduced)
 {
-  size_t Rows = getState(reduced).size() - mSize.nFixedEventTargets - 1;
-  size_t Columns = getState(reduced).size() - mSize.nFixedEventTargets - (includeTime ? 0 : 1);
-  jacobian.resize(Rows, Columns);
+  size_t Dim = getState(reduced).size() - mSize.nFixedEventTargets - mSize.nTime;
+  jacobian.resize(Dim, Dim);
 
   C_FLOAT64 DerivationFactor = std::max(derivationFactor, 100.0 * std::numeric_limits< C_FLOAT64 >::epsilon());
 
-  C_FLOAT64 * pState = mState.array() + mSize.nFixedEventTargets + (includeTime ? 0 : 1);
-  const C_FLOAT64 * pRate = mRate.array() + mSize.nFixedEventTargets + 1;
+  C_FLOAT64 * pState = mState.array() + mSize.nFixedEventTargets + mSize.nTime;
+  const C_FLOAT64 * pRate = mRate.array() + mSize.nFixedEventTargets + mSize.nTime;
 
   size_t Col;
 
@@ -3133,17 +3150,17 @@ void CMathContainer::calculateJacobian(CMatrix< C_FLOAT64 > & jacobian,
   C_FLOAT64 X2;
   C_FLOAT64 InvDelta;
 
-  CVector< C_FLOAT64 > Y1(Rows);
-  CVector< C_FLOAT64 > Y2(Rows);
+  CVector< C_FLOAT64 > Y1(Dim);
+  CVector< C_FLOAT64 > Y2(Dim);
 
   C_FLOAT64 * pY1;
   C_FLOAT64 * pY2;
 
   C_FLOAT64 * pX = pState;
-  C_FLOAT64 * pXEnd = pX + Columns;
+  C_FLOAT64 * pXEnd = pX + Dim;
 
   C_FLOAT64 * pJacobian;
-  C_FLOAT64 * pJacobianEnd = jacobian.array() + jacobian.size();
+  C_FLOAT64 * pJacobianEnd = jacobian.array() + Dim * Dim;
 
   for (Col = 0; pX != pXEnd; ++pX, ++Col)
     {
@@ -3169,11 +3186,11 @@ void CMathContainer::calculateJacobian(CMatrix< C_FLOAT64 > & jacobian,
 
       *pX = X1;
       updateSimulatedValues(reduced);
-      memcpy(Y1.array(), pRate, Rows * sizeof(C_FLOAT64));
+      memcpy(Y1.array(), pRate, Dim * sizeof(C_FLOAT64));
 
       *pX = X2;
       updateSimulatedValues(reduced);
-      memcpy(Y2.array(), pRate, Rows * sizeof(C_FLOAT64));
+      memcpy(Y2.array(), pRate, Dim * sizeof(C_FLOAT64));
 
       *pX = Store;
 
@@ -3181,7 +3198,7 @@ void CMathContainer::calculateJacobian(CMatrix< C_FLOAT64 > & jacobian,
       pY1 = Y1.array();
       pY2 = Y2.array();
 
-      for (; pJacobian < pJacobianEnd; pJacobian += Columns, ++pY1, ++pY2)
+      for (; pJacobian < pJacobianEnd; pJacobian += Dim, ++pY1, ++pY2)
         * pJacobian = (*pY2 - *pY1) * InvDelta;
     }
 
@@ -4050,7 +4067,7 @@ CMath::Entity< CMathObject > CMathContainer::addAnalysisObject(const CMath::Enti
         }
 
 #ifdef USE_JIT
-      pObject->compile(*this, *mpJITCompiler);
+      pObject->compile(*this, mJITCompiler);
 #else
       pObject->compile(*this);
 #endif
@@ -4068,7 +4085,7 @@ CMath::Entity< CMathObject > CMathContainer::addAnalysisObject(const CMath::Enti
 
   try
     {
-      mpJITCompiler->compile();
+      mJITCompiler.compile();
     }
   catch (...)
     {}
@@ -4146,7 +4163,7 @@ bool CMathContainer::removeAnalysisObject(CMath::Entity< CMathObject > & mathObj
 
   try
     {
-      mpJITCompiler->compile();
+      mJITCompiler.compile();
     }
   catch (...)
     {}
@@ -4386,7 +4403,7 @@ CMathEvent * CMathContainer::addAnalysisEvent(const CEvent * pDataEvent)
 
   try
     {
-      mpJITCompiler->compile();
+      mJITCompiler.compile();
     }
   catch (...)
     {}
@@ -4639,7 +4656,7 @@ bool CMathContainer::removeAnalysisEvent(CMathEvent *& pMathEvent)
 
   try
     {
-      mpJITCompiler->compile();
+      mJITCompiler.compile();
     }
   catch (...)
     {}

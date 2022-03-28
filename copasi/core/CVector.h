@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2022 by Pedro Mendes, Rector and Visitors of the
+// Copyright (C) 2019 by Pedro Mendes, Rector and Visitors of the
 // University of Virginia, University of Heidelberg, and University
 // of Connecticut School of Medicine.
 // All rights reserved.
@@ -73,7 +73,7 @@ public:
   /**
    * Destructor.
    */
-  virtual ~CVectorCore()
+  ~CVectorCore()
   {}
 
   /**
@@ -82,10 +82,10 @@ public:
    * @param CType * vector
    */
   void initialize(const size_t & size,
-                  const CType * vector)
+                  CType * vector)
   {
     mSize = size;
-    mpBuffer = const_cast< CType * >(vector);
+    mpBuffer = vector;
   }
 
   /**
@@ -356,7 +356,7 @@ public:
   /**
    * Destructor.
    */
-  virtual ~CVector()
+  ~CVector()
   {
     if (CVectorCore< CType >::mpBuffer != NULL)
       delete [] CVectorCore< CType >::mpBuffer;

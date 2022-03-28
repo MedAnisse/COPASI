@@ -116,7 +116,57 @@ bool CChemEq::addMetabolite(const std::string & key, const C_FLOAT64 multiplicit
 
   return true;
 }
+bool CChemEq::updateMetabolite(const std::string & oldkey,const std::string & newkey, const MetaboliteRole & role)
+{
+  size_t i;
+  size_t numModifiers= mModifiers.size();
+  size_t numSubstrates= mSubstrates.size();
+  size_t numProducts= mProducts.size();
+  size_t numBalances=mBalances.size();
+  bool changed=false;
 
+  for ( i = 0; i < numSubstrates ; ++i)
+  {
+    const std::string currentKey=mSubstrates[i].getMetaboliteKey();
+    if(currentKey.compare(oldkey)==0)
+    { 
+      std::cout<<oldkey<<"|"<<currentKey<<std::endl;
+      mSubstrates[i].setMetabolite(newkey);
+    }
+  }
+
+  for ( i = 0; i < numProducts ; ++i)
+  {
+    const std::string currentKey=mProducts[i].getMetaboliteKey();
+    if(currentKey.compare(oldkey)==0)
+    { 
+      mProducts[i].setMetabolite(newkey);
+      changed=true;
+    }
+  }
+
+  for ( i = 0; i < numModifiers && !changed; ++i)
+  {
+    const std::string currentKey=mModifiers[i].getMetaboliteKey();
+    if(currentKey.compare(oldkey)==0)
+    { 
+      mModifiers[i].setMetabolite(newkey);
+      changed=true;
+    }
+  }
+  for ( i = 0; i < numBalances ; ++i)
+  {
+    const std::string currentKey=mBalances[i].getMetaboliteKey();
+    if(currentKey.compare(oldkey)==0)
+    { 
+      std::cout<<oldkey<<"|"<<currentKey<<std::endl;
+      mBalances[i].setMetabolite(newkey);
+    }
+  }
+
+    
+  return changed;
+}
 size_t CChemEq::getCompartmentNumber() const
 {
   return getCompartments().size();

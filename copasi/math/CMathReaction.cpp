@@ -17,6 +17,7 @@
 
 #include "CMathReaction.h"
 #include "CMathContainer.h"
+#include <iostream>
 
 #include "copasi/model/CReaction.h"
 
@@ -133,6 +134,7 @@ void CMathReaction::fire()
     {
       *pStepUpdate->first += pStepUpdate->second;
     }
+   
 }
 
 void CMathReaction::fireMultiple(const C_FLOAT64 & count)
