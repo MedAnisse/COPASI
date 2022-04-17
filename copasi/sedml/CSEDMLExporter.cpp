@@ -529,7 +529,7 @@ CSEDMLExporter::exportAlgorithm(SedAlgorithm * alg,
         alg->setKisaoID("KISAO:0000563");
         break;
         
-      case CTaskEnum::Method::LMF_test:
+      case CTaskEnum::Method::RelativeEmpiricalStandardDeviation:
         alg->setKisaoID("KISAO:0000570");
         break;
 

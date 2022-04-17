@@ -109,7 +109,7 @@ const CEnumAnnotation< std::string, CTaskEnum::Method > CTaskEnum::MethodName(
   "Linear Noise Approximation",
   "Analytics Finder",
   "LSODA Sensitivities",
-  "LMF"
+  "Stochastic (Relative Empirical Standard Deviation)"
 });
 
 const CEnumAnnotation< std::string, CTaskEnum::Method > CTaskEnum::MethodXML(
@@ -166,5 +166,5 @@ const CEnumAnnotation< std::string, CTaskEnum::Method > CTaskEnum::MethodXML(
   "LinearNoiseApproximation",
   "analyticsMethod",
   "Sensitivities(LSODA)",
-  "LMF"
+  "Stochastic (Relative Empirical Standard Deviation)"
 });

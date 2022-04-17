@@ -206,7 +206,7 @@ CTaskEnum::Method getMethodType(const std::string & kisaoId)
     {"KISAO:0000562", CTaskEnum::Method::hybridLSODA},
     {"KISAO:0000563", CTaskEnum::Method::hybridODE45},
     {"KISAO:0000566", CTaskEnum::Method::stochasticRunkeKuttaRI5},
-    {"KISAO:0000570", CTaskEnum::Method::LMF_test},
+    {"KISAO:0000570", CTaskEnum::Method::RelativeEmpiricalStandardDeviation},
     
 
   };

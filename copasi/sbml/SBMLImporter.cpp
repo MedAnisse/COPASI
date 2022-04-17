@@ -1002,7 +1002,6 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
 
   /* Create all species */
   num = sbmlModel->getNumSpecies();
-  std::cout<<"num = {"<<num<<"}";
 
   if (createProgressStepOrStop(7, num, "Importing species..."))
     return NULL;
@@ -1256,7 +1255,6 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
 
               continue;
             }
-            std::cout<<"--------------------------"<<reaction->getNumReactants()<<" ! "<<reaction->getNumProducts() <<""<<std::endl;
           this->createCReactionFromReaction(reaction, sbmlModel, this->mpCopasiModel, copasi2sbmlmap, pTmpFunctionDB);
 
         }
@@ -1599,173 +1597,129 @@ CModel* SBMLImporter::createCModelFromSBMLDocument(SBMLDocument* sbmlDocument, s
 
   // this->mpCopasiModel->forceCompile(this->mpProgressHandler);
   // mpCopasiModel->updateInitialValues(mChangedObjects);
-
-   std::set<const CDataObject*> changedObjects;
-
-  // get number of compartment 
-   size_t numCompartment=this->mpCopasiModel->getCompartments().size();
-   //get the number of reations
-    size_t numReactions=this->mpCopasiModel->getReactions().size();
-   for (size_t i = 0; i < numCompartment; ++i)
-   {
-    const CCompartment* pCompartment = this->mpCopasiModel->getMetabolites()[i].getCompartment();
-    const CDataObject* pObject = pCompartment->getInitialValueReference();
-    assert(pObject != NULL);
-    changedObjects.insert(pObject);
-    assert(pCompartment != NULL);
-    
     /**
-     * get the number of Metabolites( to make 
-     * 2 copies for each Metabolite 
+     * make Metabolite and reations copies
      * */
-    size_t mNumMetabolites=this->mpCopasiModel->getMetabolites().size();
-    std::vector<CMetab*> newMetabolites;
-    size_t newMetabIndex=0;
-    for (size_t j = 0; j < mNumMetabolites; ++j)
+
+  /*-------------------------------------------------------------------------------------------------------------*/
+    if (sbmlModel->getParameter("copy"))
     {
-      CMetab* curantMetab =&(this->mpCopasiModel->getMetabolites()[j]);
-      newMetabolites.push_back(this->mpCopasiModel->createMetabolite(curantMetab->getObjectName()+"_1",
-        pCompartment->getObjectName(),
-        curantMetab->getInitialConcentration(),
-        curantMetab->getStatus()));
-      pObject = newMetabolites[newMetabIndex]->getInitialValueReference();
-      ++newMetabIndex;
-      newMetabolites.push_back(this->mpCopasiModel->createMetabolite(curantMetab->getObjectName()+"_2",
-        pCompartment->getObjectName(),
-        curantMetab->getInitialConcentration(),
-        curantMetab->getStatus()));
-      pObject = newMetabolites[newMetabIndex]->getInitialValueReference();
-      ++newMetabIndex;
-
-
-    }
-    /*
-    CMetab* pGlucose = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[0].getObjectName()+"_1",
-     pCompartment->getObjectName(),
-      this->mpCopasiModel->getMetabolites()[0].getInitialConcentration(),
-       this->mpCopasiModel->getMetabolites()[0].getStatus());
-    assert(pObject != NULL);
-    changedObjects.insert(pObject);
-    assert(pCompartment != NULL);
-    assert(pGlucose != NULL);
-    // create a second metabolite called glucose-6-phosphate with an initial
-    // concentration of 0. This metabolite is to be changed by reactions
-    CMetab* pG6P = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[1].getObjectName()+"_1",
-     pCompartment->getObjectName(),
-      this->mpCopasiModel->getMetabolites()[1].getInitialConcentration(),
-       this->mpCopasiModel->getMetabolites()[1].getStatus());
-    pObject = pGlucose->getInitialValueReference();
-    assert(pG6P != NULL);
-    pObject = pG6P->getInitialValueReference();
-    assert(pObject != NULL);
-    changedObjects.insert(pObject);
-    // another metabolite for ATP, also fixed
-    CMetab* pATP = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[2].getObjectName()+"_1",
-     pCompartment->getObjectName(),
-      this->mpCopasiModel->getMetabolites()[2].getInitialConcentration(),
-       this->mpCopasiModel->getMetabolites()[2].getStatus());
-    pObject = pGlucose->getInitialValueReference();
-    assert(pATP != NULL);
-    pObject = pATP->getInitialConcentrationReference();
-    assert(pObject != NULL);
-    changedObjects.insert(pObject);
-    // and one for ADP
-    CMetab* pADP = this->mpCopasiModel->createMetabolite(this->mpCopasiModel->getMetabolites()[3].getObjectName()+"_1",
-     pCompartment->getObjectName(),
-      this->mpCopasiModel->getMetabolites()[3].getInitialConcentration(),
-       this->mpCopasiModel->getMetabolites()[3].getStatus());
-    pObject = pGlucose->getInitialValueReference();
-    pObject = pADP->getInitialConcentrationReference();
-    changedObjects.insert(pObject);
-    */
-    for (size_t j = 0; j < numReactions; ++j)
-    {
-        // now we create a reaction1 and reaction2 
-        CReaction* pReaction1 = this->mpCopasiModel->createReaction(this->mpCopasiModel->getReactions()[j].getObjectName()+"_1");
-        CReaction* pReaction2 = this->mpCopasiModel->createReaction(this->mpCopasiModel->getReactions()[j].getObjectName()+"_2");
-      
-        //update parameters for the reations 
-        CChemEq* pChemEq = &this->mpCopasiModel->getReactions()[j].getChemEq();
-        CChemEq* pChemEq1 = &pReaction1->getChemEq();
-        CChemEq* pChemEq2 = &pReaction2->getChemEq();
-        // glucose is a substrate with stoichiometry 1
-        newMetabIndex=0;
-        size_t numSubstrates=pChemEq->getSubstrates().size();
-        for (size_t indxSubstrate = 0;  indxSubstrate< numSubstrates; ++indxSubstrate)
+      double numberCopies= sbmlModel->getParameter("copy")->getValue();
+      std::set<const CDataObject*> changedObjects;
+      // get number of compartment 
+      size_t numCompartment=this->mpCopasiModel->getCompartments().size();
+      //get the number of reations
+      size_t numReactions=this->mpCopasiModel->getReactions().size();
+     for (size_t i = 0; i < numCompartment; ++i)
+     {
+        const CCompartment* pCompartment = this->mpCopasiModel->getMetabolites()[i].getCompartment();
+        const CDataObject* pObject = pCompartment->getInitialValueReference();
+        assert(pObject != NULL);
+        changedObjects.insert(pObject);
+        assert(pCompartment != NULL);
+        /**
+         * get the number of Metabolites( to make 
+         * 2 copies for each Metabolite 
+         * */
+        size_t mNumMetabolites=this->mpCopasiModel->getMetabolites().size();
+        std::vector<CMetab*> newMetabolites;
+        size_t newMetabIndex=0;
+        for (size_t j = 0; j < mNumMetabolites; ++j)
         {
-          const CChemEqElement * currentSubstrate=&(pChemEq->getSubstrates()[indxSubstrate]);
-          const CMetab * curantMetab=currentSubstrate->getMetabolite();
-          for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
+          CMetab* curantMetab =&(this->mpCopasiModel->getMetabolites()[j]);
+          for (size_t indexcopy = 1; indexcopy <=numberCopies; ++indexcopy)
           {
-            if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
+            newMetabolites.push_back(this->mpCopasiModel->createMetabolite(curantMetab->getObjectName()+"_"+std::to_string(indexcopy),
+            pCompartment->getObjectName(),
+            curantMetab->getInitialConcentration(),
+            curantMetab->getStatus()));
+            pObject = newMetabolites[newMetabIndex]->getInitialValueReference();
+            ++newMetabIndex;
+          }
+        }
+        for (size_t j = 0; j < numReactions; ++j)
+        {
+          for (size_t indexcopy = 1; indexcopy <=numberCopies; ++indexcopy)
+          {
+              CReaction* pReaction1 = this->mpCopasiModel->createReaction(this->mpCopasiModel->getReactions()[j].getObjectName()+"_"+std::to_string(indexcopy));
+              CChemEq* pChemEq = &this->mpCopasiModel->getReactions()[j].getChemEq();
+              CChemEq* pChemEq1 = &pReaction1->getChemEq();
+              newMetabIndex=0;
+              size_t numSubstrates=pChemEq->getSubstrates().size();
+              for (size_t indxSubstrate = 0;  indxSubstrate< numSubstrates; ++indxSubstrate)
+              {
+                const CChemEqElement * currentSubstrate=&(pChemEq->getSubstrates()[indxSubstrate]);
+                const CMetab * curantMetab=currentSubstrate->getMetabolite();
+                for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
+                {
+                  if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
+                  {
+                    pChemEq1->addMetabolite(newMetabolites[(indxMetab*numberCopies)+indexcopy-1]->getKey(), currentSubstrate->getMultiplicity(), CChemEq::SUBSTRATE);
+                    
+                    break;
+                  }
+                }
+              }
+              size_t numProducts=pChemEq->getProducts().size();
+            for (size_t indxProduct = 0;  indxProduct< numProducts; ++indxProduct)
             {
-              pChemEq1->addMetabolite(newMetabolites[indxMetab*2]->getKey(), currentSubstrate->getMultiplicity(), CChemEq::SUBSTRATE);
-              pChemEq2->addMetabolite(newMetabolites[(indxMetab*2)+1]->getKey(), currentSubstrate->getMultiplicity(), CChemEq::SUBSTRATE);
-              break;
+              const CChemEqElement * currentProduct=&(pChemEq->getProducts()[indxProduct]);
+              const CMetab * curantMetab=currentProduct->getMetabolite();
+              for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
+              {
+                if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
+                {
+                  pChemEq1->addMetabolite(newMetabolites[(indxMetab*numberCopies)+indexcopy-1]->getKey(), currentProduct->getMultiplicity(), CChemEq::PRODUCT);
+                  break;
+                }
+              }
+            }
+              size_t numModifiers=pChemEq->getModifiers().size();
+              for (size_t indxModifier = 0;  indxModifier< numModifiers; ++indxModifier)
+              {
+                const CChemEqElement * currentindxModifier=&(pChemEq->getModifiers()[indxModifier]);
+                const CMetab * curantMetab=currentindxModifier->getMetabolite();
+                for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
+                {
+                  if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
+                  {
+                    pChemEq1->addMetabolite(newMetabolites[(indxMetab*numberCopies)+indexcopy-1]->getKey(), currentindxModifier->getMultiplicity(), CChemEq::MODIFIER);
+                    break;
+                  }
+                }
+              }
+              pReaction1->setReversible(false);
+              CFunctionDB* pFunDB = CRootContainer::getFunctionList();
+              assert(pFunDB != NULL);
+              
+              const std::string suitableFunctions = this->mpCopasiModel->getReactions()[j].getFunction()->getObjectName();
+
+              pReaction1->setFunction(suitableFunctions);
+              size_t numParameterCNs=this->mpCopasiModel->getReactions()[j].getParameterCNs().size();
+              for (int indexParameterCN = 0; indexParameterCN < numParameterCNs; ++indexParameterCN)
+              {
+                std::string arameterCNs= this->mpCopasiModel->getReactions()[j].getParameterCNs(indexParameterCN)[0];
+                std::vector< CRegisteredCommonName > set1;
+                if (indexParameterCN>=numParameterCNs-2)
+                {
+                  set1.push_back(CRegisteredCommonName(arameterCNs));
+                  pReaction1->setParameterCNs(indexParameterCN,set1);
+                }
+                else
+                {
+                  
+                  set1.push_back(CRegisteredCommonName(arameterCNs.substr(0,arameterCNs.size()-1)+"_"+std::to_string(indexcopy)+"]"));
+                  pReaction1->setParameterCNs(indexParameterCN,set1);
+                }
+                
+              }
+              
+              changedObjects.insert(pObject);
             }
           }
         }
-        size_t numProducts=pChemEq->getProducts().size();
-        for (size_t indxProduct = 0;  indxProduct< numProducts; ++indxProduct)
-        {
-          const CChemEqElement * currentProduct=&(pChemEq->getProducts()[indxProduct]);
-          const CMetab * curantMetab=currentProduct->getMetabolite();
-          for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
-          {
-            if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
-            {
-              pChemEq1->addMetabolite(newMetabolites[indxMetab*2]->getKey(), currentProduct->getMultiplicity(), CChemEq::PRODUCT);
-              pChemEq2->addMetabolite(newMetabolites[(indxMetab*2)+1]->getKey(), currentProduct->getMultiplicity(), CChemEq::PRODUCT);
-              break;
-            }
-          }
-        }
-        size_t numModifiers=pChemEq->getModifiers().size();
-        for (size_t indxModifier = 0;  indxModifier< numModifiers; ++indxModifier)
-        {
-          const CChemEqElement * currentindxModifier=&(pChemEq->getModifiers()[indxModifier]);
-          const CMetab * curantMetab=currentindxModifier->getMetabolite();
-          for (size_t indxMetab = 0; indxMetab < mNumMetabolites; ++indxMetab)
-          {
-            if(this->mpCopasiModel->getMetabolites()[indxMetab].getObjectName().compare(curantMetab->getObjectName())==0)
-            {
-              pChemEq1->addMetabolite(newMetabolites[indxMetab*2]->getKey(), currentindxModifier->getMultiplicity(), CChemEq::MODIFIER);
-              pChemEq2->addMetabolite(newMetabolites[(indxMetab*2)+1]->getKey(), currentindxModifier->getMultiplicity(), CChemEq::MODIFIER);
-              break;
-            }
-          }
-        }
+      }
 
-        
-        pReaction1->setReversible(false);
-        pReaction2->setReversible(false);
-        
-        CFunctionDB* pFunDB = CRootContainer::getFunctionList();
-        assert(pFunDB != NULL);
-        
-        const std::string suitableFunctions = this->mpCopasiModel->getReactions()[j].getFunction()->getObjectName();
-
-        pReaction1->setFunction(suitableFunctions);
-        pReaction2->setFunction(suitableFunctions);
-        assert(pReaction1->getFunction() != NULL);
-        assert(pReaction2->getFunction() != NULL);
-        
-        size_t numParameterCNs=this->mpCopasiModel->getReactions()[j].getParameterCNs().size();
-        for (int indexParameterCN = 0; indexParameterCN < numParameterCNs; ++indexParameterCN)
-        {
-          std::string arameterCNs= this->mpCopasiModel->getReactions()[j].getParameterCNs(indexParameterCN)[0];
-          std::vector< CRegisteredCommonName > set1;
-          set1.push_back(CRegisteredCommonName(arameterCNs.substr(0,arameterCNs.size()-1)+"_1]"));
-          pReaction1->setParameterCNs(indexParameterCN,set1);
-          std::vector< CRegisteredCommonName > set2;
-          set2.push_back(CRegisteredCommonName(arameterCNs.substr(0,arameterCNs.size()-1)+"_2]"));
-          pReaction2->setParameterCNs(indexParameterCN,set2);
-        }
-        
-        changedObjects.insert(pObject); 
-    }
-    
-   }
   return this->mpCopasiModel;
 }
 
@@ -3127,7 +3081,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
                               // next setFunctionFromExpressionTree will take this name if it is not 'Expression'
                               // (the default)
                               TmpTree2.setObjectName(functionName);
-                              std::cout<<"2976"<<std::endl;
+
                               CFunction * pNewFunction = copasiReaction->setFunctionFromExpressionTree(TmpTree2, copasi2sbmlmap, this->functionDB);
 
                               if (pNewFunction != NULL &&
@@ -3238,7 +3192,7 @@ SBMLImporter::createCReactionFromReaction(Reaction* sbmlReaction, Model* pSBMLMo
   //DebugFile << "Created reaction: " << copasiReaction->getObjectName() << std::endl;
   SBMLImporter::importMIRIAM(sbmlReaction, copasiReaction);
   SBMLImporter::importNotes(copasiReaction, sbmlReaction);
-  std::cout<<"| =====================| "<<std::endl;
+
   return copasiReaction;
 }
 

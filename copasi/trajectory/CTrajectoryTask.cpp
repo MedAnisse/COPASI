@@ -42,7 +42,6 @@
 #include "CTrajectoryMethod.h"
 #include "copasi/math/CMathContainer.h"
 #include "copasi/model/CModel.h"
-#include "copasi/model/CModel.h"
 #include "copasi/model/CState.h"
 #include "copasi/report/CKeyFactory.h"
 #include "copasi/report/CReport.h"
@@ -78,7 +77,7 @@ const CTaskEnum::Method CTrajectoryTask::ValidMethods[] =
   CTaskEnum::Method::hybrid,
   CTaskEnum::Method::hybridLSODA,
   CTaskEnum::Method::hybridODE45,
-  CTaskEnum::Method::LMF_test,
+  CTaskEnum::Method::RelativeEmpiricalStandardDeviation,
 #ifdef COPASI_DEBUG
   CTaskEnum::Method::DsaLsodar,
 #endif // COPASI_DEBUG
@@ -163,6 +162,7 @@ bool CTrajectoryTask::initialize(const OutputFlag & of,
 
   mpTrajectoryMethod = dynamic_cast<CTrajectoryMethod *>(mpMethod);
   assert(mpTrajectoryMethod);
+  
 
   mpTrajectoryMethod->setProblem(mpTrajectoryProblem);
 
@@ -699,7 +699,6 @@ bool CTrajectoryTask::processStep(const C_FLOAT64 & endTime, const bool & final)
             return false;
             break;
         }
-
       Proceed = mpCallBack == NULL || mpCallBack->proceed();
     }
 

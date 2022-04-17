@@ -41,6 +41,7 @@
 #include "copasi/steadystate/CNewtonMethod.h"
 // #include "copasi/steadystate/CSteadyStateMethod.h"
 // #include "copasi/trajectory/CExpRKMethod.h"
+#include "copasi/trajectory/CHybridMethodRESD.h"
 #include "copasi/trajectory/CHybridMethodODE45.h"
 #include "copasi/trajectory/CLsodaMethod.h"
 #include "copasi/trajectory/CRadau5Method.h"
@@ -254,8 +255,8 @@ CCopasiMethod * CMethodFactory::create(const CTaskEnum::Task & taskType,
       case CTaskEnum::Method::timeSensLsoda:
         pMethod = new CTimeSensLsodaMethod(pParent, methodType, taskType);
         break;
-      case CTaskEnum::Method::LMF_test:
-        pMethod = new CTimeSensLsodaMethod(pParent, methodType, taskType);
+      case CTaskEnum::Method::RelativeEmpiricalStandardDeviation:
+        pMethod = new CHybridMethodRESD(pParent, methodType, taskType);
         break;
     }
 

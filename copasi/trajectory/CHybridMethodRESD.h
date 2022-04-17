@@ -22,14 +22,18 @@
 // Properties, Inc. and EML Research, gGmbH.
 // All rights reserved.
 
-#ifndef COPASI_CStochDirectMethod
-#define COPASI_CStochDirectMethod
+#ifndef COPASI_CHybridMethodRESD
+#define COPASI_CHybridMethodRESD
 
 #include <set>
 #include <vector>
 
 #include "copasi/trajectory/CTrajectoryMethod.h"
 #include "copasi/utilities/CBrent.h"
+#include "copasi/model/CModel.h"
+#include "copasi/trajectory/CLsodaMethod.h"
+
+#include "CRungeKutta.h"
 
 class CModel;
 class CMetab;
@@ -38,13 +42,19 @@ class CRandom;
 class CMathReaction;
 class FDescent;
 
-class CStochDirectMethod : public CTrajectoryMethod
+class CHybridMethodRESD : public CTrajectoryMethod
 {
+  public:
+  struct Data
+  {
+    size_t dim;
+    CHybridMethodRESD * pMethod;
+  };
 private:
   /**
    * Default constructor.
    */
-  CStochDirectMethod();
+  CHybridMethodRESD();
 
 protected:
   /**
@@ -62,22 +72,22 @@ public:
    * @param const CTaskEnum::Method & methodType (default: directMethod)
    * @param const CTaskEnum::Task & taskType (default: timeCourse)
    */
-  CStochDirectMethod(const CDataContainer * pParent,
+  CHybridMethodRESD(const CDataContainer * pParent,
                      const CTaskEnum::Method & methodType = CTaskEnum::Method::directMethod,
                      const CTaskEnum::Task & taskType = CTaskEnum::Task::timeCourse);
 
   /**
    * Copy constructor.
-   * @param const CStochDirectMethod & src,
+   * @param const CHybridMethodRESD & src,
    * @param const CDataContainer * pParent (Default: NULL)
    */
-  CStochDirectMethod(const CStochDirectMethod & src,
+  CHybridMethodRESD(const CHybridMethodRESD & src,
                      const CDataContainer * pParent);
 
   /**
    *  Destructor.
    */
-  ~CStochDirectMethod();
+  ~CHybridMethodRESD();
 
   /**
    * This methods must be called to elevate subgroups to
@@ -255,6 +265,97 @@ protected:
    * The last time dependent root time
    */
   C_FLOAT64 mLastRootTime;
+  /*--------------------------------------------------------------------------*/
+  /**
+   * Calculte relative empirical standard deviation in eache step;
+   */
+  bool calculteRelativeEmpiricalStandardDeviation(C_FLOAT64 startTime);
+  void calculateDerivative(CVectorCore< C_FLOAT64 > & deriv);
+  size_t numMetabs;
+
+  /*----------------------------------*/
+  void integrateDeterministicPart(C_FLOAT64 ds);
+
+  /**
+   * Dummy Function for calculating derivative of ODE systems
+   */
+  static void EvalF(const size_t * n, const C_FLOAT64 * t, const C_FLOAT64 * y, C_FLOAT64 * ydot);
+
+  /**
+   * Dummy Function for calculating roots value
+   */
+  static void EvalR(const size_t * n, const C_FLOAT64 * t, const C_FLOAT64 * y,
+                    const size_t * nr, C_FLOAT64 * r);
+
+  /**
+   * This evaluates the derivatives for the complete model
+   */
+  void evalF(const C_FLOAT64 * t, const C_FLOAT64 * y, C_FLOAT64 * ydot);
+
+  /**
+   * This evaluates the roots value of the system
+   */
+  void evalR(const C_FLOAT64 * t, const C_FLOAT64 * y, const size_t *nr, C_FLOAT64 *r);
+  
+  //=================Attributes for ODE45 Solver================
+  /**
+   * mODE45
+   */
+  CRungeKutta mODE45;
+
+  CRungeKutta::RKMethodStatus mRKMethodStatus;
+
+  /**
+   * Record whether ODE solver has been initialized
+   */
+  bool mODEInitalized;
+
+  /**
+   *   Max number of doSingleStep() per step()
+   */
+  size_t mRootCounter;
+  //bool   mMaxStepsReached;
+
+  /**
+   * maximal increase of a particle number in one step.
+   */
+  size_t mMaxBalance;
+
+  /**
+   * mData.dim is the dimension of the ODE system.
+   * mData.pMethod contains CLsodaMethod * this to be used
+   * in the static method EvalF
+   */
+  Data mData;
+
+  /**
+   * Vector of integration variables
+   */
+  CVector< C_FLOAT64 > mY;
+  const C_FLOAT64 * mpYdot;
+  size_t mCountContainerVariables;
+  CCore::CUpdateSequence mSpeciesRateUpdateSequence;
+  CCore::CUpdateSequence mPropensitiesUpdateSequence;
+
+  size_t mFirstReactionSpeciesIndex;
+  size_t mCountReactionSpecies;
+  CVectorCore< C_FLOAT64 > mContainerFluxes;
+  C_FLOAT64 * mpRelativeTolerance;
+  C_FLOAT64 * mpAbsoluteTolerance;
+  unsigned C_INT32 * mpMaxInternalSteps;
+  /*----------------------------------*/
+  std::string rEmpiricalStandardDeviation;
+  std::vector<C_FLOAT64> vEmpiricalStandardDeviation;
+  std::vector< std::pair<std::string,std::vector<unsigned int> > > mapMetabIndex;
+  C_FLOAT64 mThreshold;
+  C_FLOAT64 mDurationStochastic;
+
+  C_INT32 rEmpiricalStandardDeviationCalculated;
+  bool switchAlgo;
+  
+public:
+
+  std::string getrEmpiricalStandardDeviation() const;
 };
 
-#endif // COPASI_CStochDirectMethod
+#endif // COPASI_CHybridMethodRESD

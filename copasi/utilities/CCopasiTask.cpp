@@ -49,6 +49,7 @@
 #include "copasi/CopasiDataModel/CDataModel.h"
 #include "copasi/core/CRootContainer.h"
 #include "copasi/report/CReportDefinition.h"
+#include "copasi/trajectory/CHybridMethodRESD.h"
 
 // static
 CCopasiTask * CCopasiTask::fromData(const CData & data, CUndoObjectInterface * pParent)
@@ -725,6 +726,11 @@ std::ostream &operator<<(std::ostream &os,
     }
   else
     os << "No Problem Specified!" << std::endl;
-
+  const CHybridMethodRESD * method= dynamic_cast<const CHybridMethodRESD *>(Task.getMethod());
+  if (method!=NULL)
+  {
+    os << "Relative Empirical Standard Deviation :" << std::endl;
+    os<<method->getrEmpiricalStandardDeviation();
+  }
   return os;
 }
